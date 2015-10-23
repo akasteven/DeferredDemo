@@ -1,0 +1,9 @@
+Preprocess/Debug/
+Skin/Debug/
+Debug/
+*.sdf
+*.opensdf
+*.suo
+*.cfg
+*.fxo
+*.asm
