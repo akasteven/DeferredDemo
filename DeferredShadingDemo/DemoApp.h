@@ -25,13 +25,27 @@ private:
 	void SetUpSceneConsts();
 	void CreateLights();
 
+	void CreateGBuffer();
+
+
 private:
+
+	//GBuffer ResourceViews
+
+	ID3D11ShaderResourceView * m_pPositionSRV;
+	ID3D11ShaderResourceView * m_pNormalSRV;
+	ID3D11ShaderResourceView * m_pAlbedoSRV;
+
+	ID3D11RenderTargetView * m_pPositionRTV;
+	ID3D11RenderTargetView * m_pNormalRTV;
+	ID3D11RenderTargetView * m_pAlbedoRTV;
 
 	//Shaders
 	ID3D11VertexShader * m_pShadingVS;
 	ID3D11PixelShader * m_pShadingPS;
 	ID3D11VertexShader * m_pGBufferVS;
 	ID3D11PixelShader * m_pGBufferPS;
+	ID3D11PixelShader *m_pGBufferPSDebug;
 
 	//Shader Constant Buffers
 	ID3D11Buffer * m_pCBNeverChanges;
@@ -62,6 +76,8 @@ private:
 	PointLight mPointLight;
 
 	//Scene Parameter
-	UINT instanceCnt;
+	UINT mInstanceCnt;
+	UINT mIndexCnt;
+	
 };
 

@@ -4,7 +4,6 @@
 #include "ShadowMap.h"
 #include "SkyBox.h"
 #include "GeoGenerator.h"
-#include "ConstantBufferDef.h"
 #include "AABB.h"
 
 
@@ -28,7 +27,6 @@ struct CBPerObject
 {
 	XMMATRIX matWorld;
 	XMMATRIX matWVP;
-	Material material;
 	XMMATRIX matWorldInvTranspose;
 	int isInstancing;
 	XMFLOAT3 padding;
@@ -41,6 +39,7 @@ m_pShadingVS(0),
 m_pShadingPS(0),
 m_pGBufferVS(0),
 m_pGBufferPS(0),
+m_pGBufferPSDebug(0),
 m_pSphereSRV(0),
 m_pCBNeverChanges(0),
 m_pCBOnResize(0),
@@ -52,7 +51,8 @@ m_pInstancedBuffer(0),
 m_pScreenQuadVB(0),
 m_pScreenQuadIB(0),
 m_pSampleLinear(0),
-instanceCnt(1)
+mInstanceCnt(1),
+mIndexCnt(0)
 {
 	mRadius = 100;
 	mTheta = float(-0.47f*MathHelper::Pi);
@@ -77,6 +77,7 @@ DemoApp::~DemoApp()
 	ReleaseCOM(m_pShadingPS);
 	ReleaseCOM(m_pGBufferVS);
 	ReleaseCOM(m_pGBufferPS);
+	ReleaseCOM(m_pGBufferPSDebug);
 	ReleaseCOM(m_pSphereSRV);
 
 	InputLayouts::DestroyAll();
@@ -99,6 +100,17 @@ void DemoApp::CreateLights()
 void DemoApp::CreateShaders()
 {
 	ID3DBlob *pBlob = NULL;
+
+	HR(LoadShaderBinaryFromFile("Shaders//GBufferVS.fxo", &pBlob));
+	HR(md3dDevice->CreateVertexShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pGBufferVS));
+	InputLayouts::InitLayout(md3dDevice, pBlob, Vertex::POSNORTEX_INS);
+
+	HR(LoadShaderBinaryFromFile("Shaders//GBufferPS.fxo", &pBlob));
+	HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pGBufferPS));
+
+	HR(LoadShaderBinaryFromFile("Shaders//GBufferPSDebug.fxo", &pBlob));
+	HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pGBufferPSDebug));
+
 
 	ReleaseCOM(pBlob);
 }
@@ -152,8 +164,8 @@ void DemoApp::CreateScreenQuad()
 void DemoApp::CreateGeometry()
 {
 	GeoGenerator::Mesh sphere;
-	GeoGenerator::GenSphere(10, 10, 10, sphere);
-
+	GeoGenerator::GenSphere(10, 100, 100, sphere);
+	mIndexCnt = sphere.indices.size();
 	//Vertex
 	D3D11_BUFFER_DESC vertexDesc;
 	ZeroMemory(&vertexDesc, sizeof(vertexDesc));
@@ -183,7 +195,7 @@ void DemoApp::CreateGeometry()
 	//Pillars per instance data
 	std::vector<Vertex::VertexIns_Mat> matWorld;
 	Vertex::VertexIns_Mat trans;
-	for (int i = 0; i < instanceCnt; i++)
+	for (int i = 0; i < mInstanceCnt; i++)
 	{
 		trans.mat = XMMatrixTranslation(0.0f, 0.0f, 0.0f);
 		matWorld.push_back(trans);
@@ -219,7 +231,7 @@ void DemoApp::CreateContantBuffers()
 
 void DemoApp::CreateSamplerStates()
 {
-	HR(D3DX11CreateShaderResourceViewFromFile(md3dDevice, L"..//Resources//Grey.jpg", 0, 0, &m_pSphereSRV, 0));
+	HR(D3DX11CreateShaderResourceViewFromFile(md3dDevice, L"..//Resources//OceanBlue.jpg", 0, 0, &m_pSphereSRV, 0));
 
 	D3D11_SAMPLER_DESC desc; 
 	ZeroMemory(&desc, sizeof(desc));
@@ -244,7 +256,7 @@ void DemoApp::SetUpSceneConsts()
 	md3dImmediateContext->PSSetConstantBuffers(0, 1, &m_pCBNeverChanges);
 
 	m_pCamera->Setup(XM_PIDIV4, mClientWidth / (float)mClientHeight, 0.01f, 1000.0f);
-	m_pCamera->SetPosition(XMFLOAT3(30.0f, 30.0f, -450.0f));
+	m_pCamera->SetPosition(XMFLOAT3(0.0f, 0.0f, -40.0f));
 
 }
 
@@ -253,6 +265,52 @@ void DemoApp::CreateRenderStates()
 	RenderStates::InitAll(md3dDevice);
 }
 
+void DemoApp::CreateGBuffer()
+{
+	D3D11_TEXTURE2D_DESC texDesc;
+	texDesc.Width = mClientWidth;
+	texDesc.Height = mClientHeight;
+	texDesc.MipLevels = 1;
+	texDesc.ArraySize = 1;
+	texDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+
+	texDesc.SampleDesc.Count = 1;
+	texDesc.SampleDesc.Quality = 0;
+
+	texDesc.Usage = D3D11_USAGE_DEFAULT;
+	texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	texDesc.CPUAccessFlags = 0;
+	texDesc.MiscFlags = 0;
+
+	ID3D11Texture2D * positionTexture = 0;
+	HR(md3dDevice->CreateTexture2D(&texDesc, 0, &positionTexture));
+
+	ID3D11Texture2D * normalTexture = 0;
+	HR(md3dDevice->CreateTexture2D(&texDesc, 0, &normalTexture));
+
+	ID3D11Texture2D * albedoTexture = 0;
+	HR(md3dDevice->CreateTexture2D(&texDesc, 0, &albedoTexture));
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
+	srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MipLevels = texDesc.MipLevels;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+
+
+	HR(md3dDevice->CreateShaderResourceView(positionTexture, &srvDesc, &m_pPositionSRV));
+	HR(md3dDevice->CreateRenderTargetView(positionTexture, NULL, &m_pPositionRTV));
+
+	HR(md3dDevice->CreateShaderResourceView(normalTexture, &srvDesc, &m_pNormalSRV));
+	HR(md3dDevice->CreateRenderTargetView(normalTexture, NULL, &m_pNormalRTV));
+
+	HR(md3dDevice->CreateShaderResourceView(albedoTexture, &srvDesc, &m_pAlbedoSRV));
+	HR(md3dDevice->CreateRenderTargetView(albedoTexture, NULL, &m_pAlbedoRTV));
+	
+	ReleaseCOM(positionTexture);
+	ReleaseCOM(normalTexture);
+	ReleaseCOM(albedoTexture);
+}
 
 bool DemoApp::Init()
 {
@@ -266,6 +324,7 @@ bool DemoApp::Init()
 	CreateSamplerStates();
 	CreateRenderStates();
 	SetUpSceneConsts();
+	CreateGBuffer();
 
 	return true;
 }
@@ -303,9 +362,8 @@ void DemoApp::DrawScene()
 
 	//Clear Render Targets
 	float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
-	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, clearColor);
 	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-	
+
 	//Set Rasterizer State
 	md3dImmediateContext->RSSetState(RenderStates::CullClockwiseRS);
 
@@ -316,7 +374,51 @@ void DemoApp::DrawScene()
 	md3dImmediateContext->IASetVertexBuffers(0, 2, buffers, strides, offsets);
 	md3dImmediateContext->IASetIndexBuffer(m_pSphereIB, DXGI_FORMAT_R32_UINT, 0);
 
+	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	md3dImmediateContext->IASetInputLayout(InputLayouts::VertexPNT_INS);
+	md3dImmediateContext->VSSetShader(m_pGBufferVS, NULL, 0);
 
+
+	ID3D11RenderTargetView * GBufferRenderTargets[3] = { m_pPositionRTV, m_pNormalRTV, m_pAlbedoRTV };
+	for (UINT i = 0; i < 3; i++)
+	{
+		md3dImmediateContext->ClearRenderTargetView(GBufferRenderTargets[i], clearColor);
+	}
+	md3dImmediateContext->OMSetRenderTargets(3, GBufferRenderTargets, mDepthStencilView);
+
+	////Check out number of render targets
+	//ID3D11RenderTargetView * pRTVs[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { NULL };
+	//ID3D11DepthStencilView *  pDSV = 0;
+
+	//md3dImmediateContext->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, pRTVs, &pDSV);
+
+	//UINT counter = 0;
+	//for (int i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
+	//{
+	//	if (pRTVs[i] != NULL)
+	//		counter++;
+	//	ReleaseCOM(pRTVs[i]);
+	//}
+
+	md3dImmediateContext->PSSetShader(m_pGBufferPS, NULL , 0);
+
+	//md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, clearColor);
+	//md3dImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
+	//md3dImmediateContext->PSSetShader(m_pGBufferPSDebug, NULL, 0);
+
+	CBPerObject cbPerObj;
+	cbPerObj.isInstancing = 1; 
+	XMMATRIX world = XMMatrixIdentity();
+	cbPerObj.matWorld = XMMatrixTranspose(world);
+	cbPerObj.matWorldInvTranspose = XMMatrixTranspose(MathHelper::InverseTranspose(world));
+	cbPerObj.matWVP = XMMatrixTranspose( world * m_pCamera->GetViewProjMatrix());
+	md3dImmediateContext->UpdateSubresource(m_pCBPerObject, 0, NULL, &cbPerObj, 0, 0);
+
+	md3dImmediateContext->VSSetConstantBuffers(3, 1, &m_pCBPerObject);
+	md3dImmediateContext->PSSetShaderResources(0, 1, &m_pSphereSRV);
+	md3dImmediateContext->PSSetSamplers(0, 1, &m_pSampleLinear);
+
+	md3dImmediateContext->DrawIndexedInstanced(mIndexCnt, mInstanceCnt, 0, 0, 0 );
 
 	HR(mSwapChain->Present(0, 0));
 }

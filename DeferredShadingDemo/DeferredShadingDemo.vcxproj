@@ -59,14 +59,11 @@
       <AdditionalDependencies>d3d11.lib;d3dx11d.lib;D3DCompiler.lib;dxerr.lib;dxgi.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
-      <Command>fxc /Zi /Od /T vs_5_0 /E VS /Fc Shaders\ShadowVS.asm /Fo Shaders\shadowvs.fxo Shaders\ShadowMap.hlsl
-fxc /Zi /Od /T ps_5_0 /E PS /Fc Shaders\ShadowPS.asm /Fo Shaders\shadowps.fxo Shaders\ShadowMap.hlsl
-fxc /Zi /Od /T vs_5_0 /E VS /Fc Shaders\VS.asm /Fo Shaders\vs.fxo Shaders\DemoShader.hlsl
-fxc /Zi /Od /T ps_5_0 /E PS /Fc Shaders\PS.asm /Fo Shaders\ps.fxo Shaders\DemoShader.hlsl
-fxc /Zi /Od /T vs_5_0 /E VS /Fc Shaders\DebugTextureVS.asm /Fo Shaders\debugtexturevs.fxo Shaders\DebugTexture.hlsl
-fxc /Zi /Od /T ps_5_0 /E PS /Fc Shaders\DebugTexturePS.asm /Fo Shaders\debugtextureps.fxo Shaders\DebugTexture.hlsl
-fxc /Zi /Od /T vs_5_0 /E VS /Fc Shaders\SkyBoxVS.asm /Fo Shaders\SkyBoxVS.fxo Shaders\SkyBox.hlsl
-fxc /Zi /Od /T ps_5_0 /E PS /Fc Shaders\SkyBoxPS.asm /Fo Shaders\SkyBoxPS.fxo Shaders\SkyBox.hlsl</Command>
+      <Command>fxc /Zi /Od /T vs_5_0 /E VS /Fc Shaders\GBufferVS.asm /Fo Shaders\GBufferVS.fxo Shaders\GBufferShader.hlsl
+fxc /Zi /Od /T ps_5_0 /E PS /Fc Shaders\GBufferPS.asm /Fo Shaders\GBufferPS.fxo Shaders\GBufferShader.hlsl
+fxc /Zi /Od /T ps_5_0 /E PSDebug /Fc Shaders\GBufferPSDebug.asm /Fo Shaders\GBufferPSDebug.fxo Shaders\GBufferShader.hlsl
+
+</Command>
     </PreBuildEvent>
     <FxCompile>
       <ShaderModel>5.0</ShaderModel>
@@ -94,7 +91,6 @@ fxc /Zi /Od /T ps_5_0 /E PS /Fc Shaders\SkyBoxPS.asm /Fo Shaders\SkyBoxPS.fxo Sh
     <ClInclude Include="BoundingSphere.h" />
     <ClInclude Include="Camera.h" />
     <ClInclude Include="CascadedShadowMap.h" />
-    <ClInclude Include="ConstantBufferDef.h" />
     <ClInclude Include="D3DUtil.h" />
     <ClInclude Include="DemoApp.h" />
     <ClInclude Include="DemoBase.h" />
@@ -128,6 +124,9 @@ fxc /Zi /Od /T ps_5_0 /E PS /Fc Shaders\SkyBoxPS.asm /Fo Shaders\SkyBoxPS.fxo Sh
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\DemoShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </FxCompile>
+    <FxCompile Include="Shaders\GBufferShader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Shaders\LightDef.hlsl">

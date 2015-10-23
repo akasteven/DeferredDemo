@@ -31,9 +31,9 @@ struct PSINPUT
 
 struct PSOUTPUT
 {
-	float4 Position : SV_Target0 ;
-	float4 Normal : SV_Target1 ; 
-	float4 Albedo : SV_Target2 ;
+	float4 Position : SV_Target1 ;
+	float4 Normal : SV_Target2 ; 
+	float4 Albedo : SV_Target3 ;
 };
 
 
@@ -62,4 +62,14 @@ PSOUTPUT PS( PSINPUT input )
 	output.Albedo = float4(diffuseAlbedo, 1.0f);
 	
 	return output ;
+}
+
+float4 PSDebug(PSINPUT input) : SV_Target 
+{ 
+	float3 diffuseAlbedo = txDiffuse.Sample(samLinear, input.Tex).rgb;
+	
+	return float4(input.PosW, 1.0f);
+	//return float4(normalize(input.NorW), 1.0f);
+	return float4(diffuseAlbedo, 1.0f);
+
 }

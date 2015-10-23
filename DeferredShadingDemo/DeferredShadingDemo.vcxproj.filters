@@ -42,9 +42,6 @@
     <ClInclude Include="ShadowMap.h">
       <Filter>Effects</Filter>
     </ClInclude>
-    <ClInclude Include="ConstantBufferDef.h">
-      <Filter>StateObjects</Filter>
-    </ClInclude>
     <ClInclude Include="Light.h">
       <Filter>Effects</Filter>
     </ClInclude>
@@ -118,6 +115,9 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\SimpleLighting.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\GBufferShader.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>
