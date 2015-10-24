@@ -60,6 +60,10 @@ private:
 	ID3D11Buffer * m_pSphereIB;
 	ID3D11Buffer *m_pInstancedBuffer;
 
+	ID3D11Texture2D * m_pPositionTexture;
+	ID3D11Texture2D * m_pNormalTexture;
+	ID3D11Texture2D * m_pAlbedoTexture;
+
 	//Shader Resources
 	ID3D11ShaderResourceView * m_pSphereSRV; 
 

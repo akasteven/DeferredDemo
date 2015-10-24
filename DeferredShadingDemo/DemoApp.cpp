@@ -45,6 +45,9 @@ m_pCBNeverChanges(0),
 m_pCBOnResize(0),
 m_pCBPerFrame(0),
 m_pCBPerObject(0),
+m_pPositionTexture(0),
+m_pNormalTexture(0),
+m_pAlbedoTexture(0),
 m_pSphereVB(0),
 m_pSphereIB(0),
 m_pInstancedBuffer(0),
@@ -63,6 +66,9 @@ mIndexCnt(0)
 DemoApp::~DemoApp()
 {
 	md3dImmediateContext->ClearState();
+	ReleaseCOM(m_pPositionTexture);
+	ReleaseCOM(m_pNormalTexture);
+	ReleaseCOM(m_pAlbedoTexture);
 	ReleaseCOM(m_pSphereVB);
 	ReleaseCOM(m_pSphereIB);
 	ReleaseCOM(m_pScreenQuadVB);
@@ -108,8 +114,15 @@ void DemoApp::CreateShaders()
 	HR(LoadShaderBinaryFromFile("Shaders//GBufferPS.fxo", &pBlob));
 	HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pGBufferPS));
 
-	HR(LoadShaderBinaryFromFile("Shaders//GBufferPSDebug.fxo", &pBlob));
-	HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pGBufferPSDebug));
+	HR(LoadShaderBinaryFromFile("Shaders//DeferredVS.fxo", &pBlob));
+	HR(md3dDevice->CreateVertexShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pShadingVS));
+	InputLayouts::InitLayout(md3dDevice, pBlob, Vertex::POS);
+
+	HR(LoadShaderBinaryFromFile("Shaders//DeferredPS.fxo", &pBlob));
+	HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pShadingPS));
+
+	//HR(LoadShaderBinaryFromFile("Shaders//GBufferPSDebug.fxo", &pBlob));
+	//HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pGBufferPSDebug));
 
 
 	ReleaseCOM(pBlob);
@@ -282,14 +295,15 @@ void DemoApp::CreateGBuffer()
 	texDesc.CPUAccessFlags = 0;
 	texDesc.MiscFlags = 0;
 
-	ID3D11Texture2D * positionTexture = 0;
-	HR(md3dDevice->CreateTexture2D(&texDesc, 0, &positionTexture));
+	HR(md3dDevice->CreateTexture2D(&texDesc, 0, &m_pPositionTexture));
+	HR(md3dDevice->CreateTexture2D(&texDesc, 0, &m_pNormalTexture));
+	HR(md3dDevice->CreateTexture2D(&texDesc, 0, &m_pAlbedoTexture));
 
-	ID3D11Texture2D * normalTexture = 0;
-	HR(md3dDevice->CreateTexture2D(&texDesc, 0, &normalTexture));
+	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
+	rtvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	rtvDesc.Texture2D.MipSlice = 0;
 
-	ID3D11Texture2D * albedoTexture = 0;
-	HR(md3dDevice->CreateTexture2D(&texDesc, 0, &albedoTexture));
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
 	srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;;
@@ -297,19 +311,15 @@ void DemoApp::CreateGBuffer()
 	srvDesc.Texture2D.MipLevels = texDesc.MipLevels;
 	srvDesc.Texture2D.MostDetailedMip = 0;
 
+	HR(md3dDevice->CreateShaderResourceView(m_pPositionTexture, &srvDesc, &m_pPositionSRV));
+	HR(md3dDevice->CreateRenderTargetView(m_pPositionTexture, &rtvDesc, &m_pPositionRTV));
 
-	HR(md3dDevice->CreateShaderResourceView(positionTexture, &srvDesc, &m_pPositionSRV));
-	HR(md3dDevice->CreateRenderTargetView(positionTexture, NULL, &m_pPositionRTV));
+	HR(md3dDevice->CreateShaderResourceView(m_pNormalTexture, &srvDesc, &m_pNormalSRV));
+	HR(md3dDevice->CreateRenderTargetView(m_pNormalTexture, &rtvDesc, &m_pNormalRTV));
 
-	HR(md3dDevice->CreateShaderResourceView(normalTexture, &srvDesc, &m_pNormalSRV));
-	HR(md3dDevice->CreateRenderTargetView(normalTexture, NULL, &m_pNormalRTV));
+	HR(md3dDevice->CreateShaderResourceView(m_pAlbedoTexture, &srvDesc, &m_pAlbedoSRV));
+	HR(md3dDevice->CreateRenderTargetView(m_pAlbedoTexture, &rtvDesc, &m_pAlbedoRTV));
 
-	HR(md3dDevice->CreateShaderResourceView(albedoTexture, &srvDesc, &m_pAlbedoSRV));
-	HR(md3dDevice->CreateRenderTargetView(albedoTexture, NULL, &m_pAlbedoRTV));
-	
-	ReleaseCOM(positionTexture);
-	ReleaseCOM(normalTexture);
-	ReleaseCOM(albedoTexture);
 }
 
 bool DemoApp::Init()
@@ -360,37 +370,41 @@ void DemoApp::DrawScene()
 	assert(md3dImmediateContext);
 	assert(mSwapChain);
 
-	//Clear Render Targets
-	float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	//Writing to GBuffer
+	float clearColor[4] = { 1.0f, 1.0f,1.0f, 0.0f };
+	ID3D11RenderTargetView * GBufferRenderTargets[3];
+	GBufferRenderTargets[0] = m_pPositionRTV;
+	GBufferRenderTargets[1] = m_pNormalRTV;
+	GBufferRenderTargets[2] = m_pAlbedoRTV;
+
+	md3dImmediateContext->OMSetRenderTargets(3, GBufferRenderTargets, mDepthStencilView);
+
+	for (UINT i = 0; i < 3; i++)
+	{
+		md3dImmediateContext->ClearRenderTargetView(GBufferRenderTargets[i], clearColor);
+	}
 	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
-	//Set Rasterizer State
-	md3dImmediateContext->RSSetState(RenderStates::CullClockwiseRS);
-
-	//Set Vertex and Index Buffers
 	UINT strides[2] = { sizeof(Vertex::VertexPNT), sizeof(Vertex::VertexIns_Mat) };
 	UINT offsets[2] = { 0, 0 };
 	ID3D11Buffer * buffers[2] = { m_pSphereVB, m_pInstancedBuffer };
 	md3dImmediateContext->IASetVertexBuffers(0, 2, buffers, strides, offsets);
 	md3dImmediateContext->IASetIndexBuffer(m_pSphereIB, DXGI_FORMAT_R32_UINT, 0);
-
 	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	md3dImmediateContext->IASetInputLayout(InputLayouts::VertexPNT_INS);
+
+	md3dImmediateContext->RSSetState(RenderStates::CullClockwiseRS);
+
 	md3dImmediateContext->VSSetShader(m_pGBufferVS, NULL, 0);
-
-
-	ID3D11RenderTargetView * GBufferRenderTargets[3] = { m_pPositionRTV, m_pNormalRTV, m_pAlbedoRTV };
-	for (UINT i = 0; i < 3; i++)
-	{
-		md3dImmediateContext->ClearRenderTargetView(GBufferRenderTargets[i], clearColor);
-	}
-	md3dImmediateContext->OMSetRenderTargets(3, GBufferRenderTargets, mDepthStencilView);
+	md3dImmediateContext->PSSetShader(m_pGBufferPS, NULL, 0);
 
 	////Check out number of render targets
 	//ID3D11RenderTargetView * pRTVs[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { NULL };
 	//ID3D11DepthStencilView *  pDSV = 0;
 
 	//md3dImmediateContext->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, pRTVs, &pDSV);
+
+	////assert(pRTVs[0] && pRTVs[1] && pRTVs[2]);
 
 	//UINT counter = 0;
 	//for (int i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
@@ -400,25 +414,42 @@ void DemoApp::DrawScene()
 	//	ReleaseCOM(pRTVs[i]);
 	//}
 
-	md3dImmediateContext->PSSetShader(m_pGBufferPS, NULL , 0);
-
-	//md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, clearColor);
-	//md3dImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
-	//md3dImmediateContext->PSSetShader(m_pGBufferPSDebug, NULL, 0);
-
 	CBPerObject cbPerObj;
 	cbPerObj.isInstancing = 1; 
 	XMMATRIX world = XMMatrixIdentity();
 	cbPerObj.matWorld = XMMatrixTranspose(world);
 	cbPerObj.matWorldInvTranspose = XMMatrixTranspose(MathHelper::InverseTranspose(world));
 	cbPerObj.matWVP = XMMatrixTranspose( world * m_pCamera->GetViewProjMatrix());
-	md3dImmediateContext->UpdateSubresource(m_pCBPerObject, 0, NULL, &cbPerObj, 0, 0);
 
+	md3dImmediateContext->UpdateSubresource(m_pCBPerObject, 0, NULL, &cbPerObj, 0, 0);
 	md3dImmediateContext->VSSetConstantBuffers(3, 1, &m_pCBPerObject);
 	md3dImmediateContext->PSSetShaderResources(0, 1, &m_pSphereSRV);
 	md3dImmediateContext->PSSetSamplers(0, 1, &m_pSampleLinear);
 
 	md3dImmediateContext->DrawIndexedInstanced(mIndexCnt, mInstanceCnt, 0, 0, 0 );
+
+	//Shading Screen Quad Pixels
+	float clearColor2[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
+	md3dImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
+	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, clearColor2);
+	md3dImmediateContext->RSSetState(RenderStates::CullClockwiseRS);
+
+	UINT stride[1] = { sizeof(Vertex::VertexBase)};
+	UINT offset[1] = { 0 };
+	ID3D11Buffer * buffer[1] = { m_pScreenQuadVB};
+	md3dImmediateContext->IASetVertexBuffers(0, 1, buffer, stride, offset);
+	md3dImmediateContext->IASetIndexBuffer(m_pScreenQuadIB, DXGI_FORMAT_R32_UINT, 0);
+	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	md3dImmediateContext->IASetInputLayout(InputLayouts::VertexP);
+
+	md3dImmediateContext->VSSetShader(m_pShadingVS, NULL, 0);
+	md3dImmediateContext->PSSetShader(m_pShadingPS, NULL, 0);
+	md3dImmediateContext->PSSetShaderResources(0, 1, &m_pPositionSRV);
+	md3dImmediateContext->PSSetShaderResources(1, 1, &m_pNormalSRV);
+	md3dImmediateContext->PSSetShaderResources(2, 1, &m_pAlbedoSRV);
+
+	md3dImmediateContext->DrawIndexed(3, 0, 0);
 
 	HR(mSwapChain->Present(0, 0));
 }

@@ -59,9 +59,15 @@
       <AdditionalDependencies>d3d11.lib;d3dx11d.lib;D3DCompiler.lib;dxerr.lib;dxgi.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PreBuildEvent>
-      <Command>fxc /Zi /Od /T vs_5_0 /E VS /Fc Shaders\GBufferVS.asm /Fo Shaders\GBufferVS.fxo Shaders\GBufferShader.hlsl
+      <Command>fxc /Zi /Od /T vs_5_0 /E VS /Fc Shaders\GBufferVS.asm /Fo Shaders\GBufferVS.fxo Shaders\GBufferShader.hlsl 
+
 fxc /Zi /Od /T ps_5_0 /E PS /Fc Shaders\GBufferPS.asm /Fo Shaders\GBufferPS.fxo Shaders\GBufferShader.hlsl
+
 fxc /Zi /Od /T ps_5_0 /E PSDebug /Fc Shaders\GBufferPSDebug.asm /Fo Shaders\GBufferPSDebug.fxo Shaders\GBufferShader.hlsl
+
+fxc /Zi /Od /T vs_5_0 /E VS /Fc Shaders\DeferredVS.asm /Fo Shaders\DeferredVS.fxo Shaders\DeferredShader.hlsl 
+
+fxc /Zi /Od /T ps_5_0 /E PS /Fc Shaders\DeferredPS.asm /Fo Shaders\DeferredPS.fxo Shaders\DeferredShader.hlsl
 
 </Command>
     </PreBuildEvent>
@@ -123,6 +129,9 @@ fxc /Zi /Od /T ps_5_0 /E PSDebug /Fc Shaders\GBufferPSDebug.asm /Fo Shaders\GBuf
     <ClCompile Include="Vertex.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="Shaders\DeferredShader.hlsl">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </FxCompile>
     <FxCompile Include="Shaders\DemoShader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </FxCompile>

@@ -381,8 +381,7 @@ void DemoBase::OnResize()
 
 
 	// Bind the render target view and depth/stencil view to the pipeline.
-
-	md3dImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
+	//md3dImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
 
 	// Set the viewport transform.
 	mScreenViewport.TopLeftX = 0;
