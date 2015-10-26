@@ -66,7 +66,11 @@ fxc /Zi /Od /T ps_5_0 /E PS /Fc Shaders\GBufferPS.asm /Fo Shaders\GBufferPS.fxo 
 
 fxc /Zi /Od /T vs_5_0 /E VS /Fc Shaders\DeferredVS.asm /Fo Shaders\DeferredVS.fxo Shaders\DeferredShader.hlsl 
 
-fxc /Zi /Od /T ps_5_0 /E PS /Fc Shaders\DeferredPS.asm /Fo Shaders\DeferredPS.fxo Shaders\DeferredShader.hlsl
+fxc /Zi /Od /T ps_5_0 /E PS_POINTLIGHT /Fc Shaders\DeferredPSPointLight.asm /Fo Shaders\DeferredPSPointLight.fxo Shaders\DeferredShader.hlsl
+
+fxc /Zi /Od /T ps_5_0 /E PS_SPOTLIGHT /Fc Shaders\DeferredPSSpotLight.asm /Fo Shaders\DeferredPSSpotLight.fxo Shaders\DeferredShader.hlsl
+
+fxc /Zi /Od /T ps_5_0 /E PS_DIRECTIONALLIGHT /Fc Shaders\DeferredPSDirectionalLight.asm /Fo Shaders\DeferredPSDirectionalLight.fxo Shaders\DeferredShader.hlsl
 
 </Command>
     </PreBuildEvent>

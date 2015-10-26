@@ -9,7 +9,7 @@
 
 struct CBNeverChanges
 {
-	DirectionalLight dirLight;
+	XMFLOAT4 padding;
 };
 
 struct CBOnResize
@@ -32,19 +32,31 @@ struct CBPerObject
 	XMFLOAT3 padding;
 };
 
+struct CBPerLight
+{
+	XMFLOAT3 LightDir;
+	float  LightRange;
+	XMFLOAT3 LightColor;
+	float SpotAngle;
+	XMFLOAT3 LightPos;
+	float padding;
+};
+
 
 DemoApp::DemoApp(HINSTANCE hInstance)
 :DemoBase(hInstance),
 m_pShadingVS(0),
-m_pShadingPS(0),
+m_pShadingPSPoint(0),
+m_pShadingPSSpot(0),
+m_pShadingPSDirectional(0),
 m_pGBufferVS(0),
 m_pGBufferPS(0),
-m_pGBufferPSDebug(0),
 m_pSphereSRV(0),
 m_pCBNeverChanges(0),
 m_pCBOnResize(0),
 m_pCBPerFrame(0),
 m_pCBPerObject(0),
+m_pCBPerLight(0),
 m_pPositionTexture(0),
 m_pNormalTexture(0),
 m_pAlbedoTexture(0),
@@ -78,12 +90,14 @@ DemoApp::~DemoApp()
 	ReleaseCOM(m_pCBOnResize);
 	ReleaseCOM(m_pCBPerFrame);
 	ReleaseCOM(m_pCBPerObject);
+	ReleaseCOM(m_pCBPerLight);
 	ReleaseCOM(m_pSampleLinear);
 	ReleaseCOM(m_pShadingVS);
-	ReleaseCOM(m_pShadingPS);
+	ReleaseCOM(m_pShadingPSPoint);
+	ReleaseCOM(m_pShadingPSSpot);
+	ReleaseCOM(m_pShadingPSDirectional);
 	ReleaseCOM(m_pGBufferVS);
 	ReleaseCOM(m_pGBufferPS);
-	ReleaseCOM(m_pGBufferPSDebug);
 	ReleaseCOM(m_pSphereSRV);
 
 	InputLayouts::DestroyAll();
@@ -118,12 +132,14 @@ void DemoApp::CreateShaders()
 	HR(md3dDevice->CreateVertexShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pShadingVS));
 	InputLayouts::InitLayout(md3dDevice, pBlob, Vertex::POS);
 
-	HR(LoadShaderBinaryFromFile("Shaders//DeferredPS.fxo", &pBlob));
-	HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pShadingPS));
+	HR(LoadShaderBinaryFromFile("Shaders//DeferredPSPointLight.fxo", &pBlob));
+	HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pShadingPSPoint));
 
-	//HR(LoadShaderBinaryFromFile("Shaders//GBufferPSDebug.fxo", &pBlob));
-	//HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pGBufferPSDebug));
+	HR(LoadShaderBinaryFromFile("Shaders//DeferredPSSpotLight.fxo", &pBlob));
+	HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pShadingPSSpot));
 
+	HR(LoadShaderBinaryFromFile("Shaders//DeferredPSDirectionalLight.fxo", &pBlob));
+	HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pShadingPSDirectional));
 
 	ReleaseCOM(pBlob);
 }
@@ -143,7 +159,7 @@ void DemoApp::CreateScreenQuad()
 
 	DWORD index[6] = 
 	{
-		0, 2, 1, 0, 3, 2
+		0, 1, 2, 0, 2, 3
 	};
 
 	D3D11_BUFFER_DESC vertexBufferDesc;
@@ -240,6 +256,9 @@ void DemoApp::CreateContantBuffers()
 	desc.ByteWidth = sizeof(CBPerObject);
 	HR(md3dDevice->CreateBuffer(&desc, 0, &m_pCBPerObject));
 
+	desc.ByteWidth = sizeof(CBPerLight);
+	HR(md3dDevice->CreateBuffer(&desc, 0, &m_pCBPerLight));
+
 }
 
 void DemoApp::CreateSamplerStates()
@@ -261,16 +280,8 @@ void DemoApp::CreateSamplerStates()
 
 void DemoApp::SetUpSceneConsts()
 {
-	//Set Invariant Constant Buffer
-	CBNeverChanges cbNeverChanges;
-	cbNeverChanges.dirLight = mDirLight;
-	md3dImmediateContext->UpdateSubresource(m_pCBNeverChanges, 0, NULL, &cbNeverChanges, 0, 0);
-	md3dImmediateContext->VSSetConstantBuffers(0, 1, &m_pCBNeverChanges);
-	md3dImmediateContext->PSSetConstantBuffers(0, 1, &m_pCBNeverChanges);
-
 	m_pCamera->Setup(XM_PIDIV4, mClientWidth / (float)mClientHeight, 0.01f, 1000.0f);
-	m_pCamera->SetPosition(XMFLOAT3(0.0f, 0.0f, -40.0f));
-
+	m_pCamera->SetPosition(XMFLOAT3(0.0f, 0.0f, -100.0f));
 }
 
 void DemoApp::CreateRenderStates()
@@ -367,11 +378,8 @@ void DemoApp::DrawScene()
 	assert(mSwapChain);
 
 	//Writing to GBuffer
-	float clearColor[4] = { 1.0f, 1.0f, 1.0f, 0.0f };
-	ID3D11RenderTargetView * GBufferRenderTargets[3] = {
-		m_pPositionRTV, m_pNormalRTV, m_pAlbedoRTV
-	};
-
+	float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	ID3D11RenderTargetView * GBufferRenderTargets[3] = { m_pPositionRTV, m_pNormalRTV, m_pAlbedoRTV };
 
 	for (UINT i = 0; i < 3; i++)
 	{
@@ -380,18 +388,18 @@ void DemoApp::DrawScene()
 	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 	md3dImmediateContext->OMSetRenderTargets(3, GBufferRenderTargets, mDepthStencilView);
 
-	//Check out number of render targets
-	ID3D11RenderTargetView * pRTVs[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { NULL };
-	ID3D11DepthStencilView *  pDSV = 0;
+	////Check out number of render targets
+	//ID3D11RenderTargetView * pRTVs[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { NULL };
+	//ID3D11DepthStencilView *  pDSV = 0;
 
-	md3dImmediateContext->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, pRTVs, &pDSV);
-	assert(pRTVs[0] && pRTVs[1] && pRTVs[2]);
+	//md3dImmediateContext->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, pRTVs, &pDSV);
+	//assert(pRTVs[0] && pRTVs[1] && pRTVs[2]);
 
-	for (int i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
-	{
-		if (pRTVs[i] != NULL)
-		ReleaseCOM(pRTVs[i]);
-	}
+	//for (int i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
+	//{
+	//	if (pRTVs[i] != NULL)
+	//	ReleaseCOM(pRTVs[i]);
+	//}
 
 	UINT strides[2] = { sizeof(Vertex::VertexPNT), sizeof(Vertex::VertexIns_Mat) };
 	UINT offsets[2] = { 0, 0 };
@@ -400,9 +408,7 @@ void DemoApp::DrawScene()
 	md3dImmediateContext->IASetIndexBuffer(m_pSphereIB, DXGI_FORMAT_R32_UINT, 0);
 	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	md3dImmediateContext->IASetInputLayout(InputLayouts::VertexPNT_INS);
-
-	md3dImmediateContext->RSSetState(RenderStates::NoCullRS);
-
+	md3dImmediateContext->RSSetState(RenderStates::CullCounterClockwiseRS);
 	md3dImmediateContext->VSSetShader(m_pGBufferVS, NULL, 0);
 	md3dImmediateContext->PSSetShader(m_pGBufferPS, NULL, 0);
 
@@ -412,7 +418,6 @@ void DemoApp::DrawScene()
 	cbPerObj.matWorld = XMMatrixTranspose(world);
 	cbPerObj.matWorldInvTranspose = XMMatrixTranspose(MathHelper::InverseTranspose(world));
 	cbPerObj.matWVP = XMMatrixTranspose(world * m_pCamera->GetViewProjMatrix());
-
 	md3dImmediateContext->UpdateSubresource(m_pCBPerObject, 0, NULL, &cbPerObj, 0, 0);
 	md3dImmediateContext->VSSetConstantBuffers(3, 1, &m_pCBPerObject);
 	md3dImmediateContext->PSSetShaderResources(0, 1, &m_pSphereSRV);
@@ -420,24 +425,25 @@ void DemoApp::DrawScene()
 
 	md3dImmediateContext->DrawIndexedInstanced(mIndexCnt, mInstanceCnt, 0, 0, 0 );
 
-	
 	//Shading Screen Quad Pixels
-	float clearColor2[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
 	md3dImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
 	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, clearColor2);
-	md3dImmediateContext->RSSetState(RenderStates::NoCullRS);
+	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, clearColor);
 
 	UINT stride[1] = { sizeof(Vertex::VertexBase)};
 	UINT offset[1] = { 0 };
 	ID3D11Buffer * buffer[1] = { m_pScreenQuadVB};
 	md3dImmediateContext->IASetVertexBuffers(0, 1, buffer, stride, offset);
 	md3dImmediateContext->IASetIndexBuffer(m_pScreenQuadIB, DXGI_FORMAT_R32_UINT, 0);
-	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	md3dImmediateContext->IASetInputLayout(InputLayouts::VertexP);
-
 	md3dImmediateContext->VSSetShader(m_pShadingVS, NULL, 0);
-	md3dImmediateContext->PSSetShader(m_pShadingPS, NULL, 0);
+	md3dImmediateContext->PSSetShader(m_pShadingPSDirectional, NULL, 0);
+
+	CBPerLight cbPerLight;
+	cbPerLight.LightColor = XMFLOAT3 (0.0f, 0.5f, 0.5f);
+	cbPerLight.LightDir = XMFLOAT3(-1.0f, -1.0f, 1.0f);
+	md3dImmediateContext->UpdateSubresource(m_pCBPerLight, 0, NULL, &cbPerLight, 0, 0);
+	md3dImmediateContext->PSSetConstantBuffers(3, 1, &m_pCBPerLight);
 	md3dImmediateContext->PSSetShaderResources(0, 1, &m_pPositionSRV);
 	md3dImmediateContext->PSSetShaderResources(1, 1, &m_pNormalSRV);
 	md3dImmediateContext->PSSetShaderResources(2, 1, &m_pAlbedoSRV);

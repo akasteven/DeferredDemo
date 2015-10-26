@@ -30,8 +30,7 @@ private:
 
 private:
 
-	//GBuffer ResourceViews
-
+	//GBuffer Resource Views and Render Target Views
 	ID3D11ShaderResourceView * m_pPositionSRV;
 	ID3D11ShaderResourceView * m_pNormalSRV;
 	ID3D11ShaderResourceView * m_pAlbedoSRV;
@@ -41,17 +40,19 @@ private:
 	ID3D11RenderTargetView * m_pAlbedoRTV;
 
 	//Shaders
-	ID3D11VertexShader * m_pShadingVS;
-	ID3D11PixelShader * m_pShadingPS;
 	ID3D11VertexShader * m_pGBufferVS;
 	ID3D11PixelShader * m_pGBufferPS;
-	ID3D11PixelShader *m_pGBufferPSDebug;
+	ID3D11VertexShader * m_pShadingVS;
+	ID3D11PixelShader * m_pShadingPSPoint;
+	ID3D11PixelShader * m_pShadingPSSpot;
+	ID3D11PixelShader * m_pShadingPSDirectional;
 
 	//Shader Constant Buffers
 	ID3D11Buffer * m_pCBNeverChanges;
 	ID3D11Buffer * m_pCBOnResize;
 	ID3D11Buffer * m_pCBPerFrame;
 	ID3D11Buffer * m_pCBPerObject;
+	ID3D11Buffer * m_pCBPerLight;
 
 	//Vertex and Index Buffers
 	ID3D11Buffer* m_pScreenQuadVB;
@@ -64,7 +65,7 @@ private:
 	ID3D11Texture2D * m_pNormalTexture;
 	ID3D11Texture2D * m_pAlbedoTexture;
 
-	//Shader Resources
+	//Texture Shader Resources View
 	ID3D11ShaderResourceView * m_pSphereSRV; 
 
 	//Sampler States

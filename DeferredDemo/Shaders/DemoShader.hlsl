@@ -7,12 +7,6 @@ Texture2D txShadowMap : register(t2);
 SamplerState samLinear : register (s0);
 SamplerComparisonState samShadowMap : register(s1);
 
-cbuffer cbNeverChanges : register( b0 )
-{
-	DirectionalLight DirLight;
-	float ShadowMapSize;
-	float3 pad3;
-};
 
 cbuffer cbChangeOnResize : register( b1 )
 {
