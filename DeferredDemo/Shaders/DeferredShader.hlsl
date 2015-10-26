@@ -11,6 +11,7 @@ float4 VS( float3 position : POSITION  ) : SV_POSITION
 
 float4 PS( float4 pos : SV_POSITION ) : SV_TARGET
 {
+	
 	float3 loadpos = float3( pos.xy, 0 );
-	return txPosition.Load( loadpos );
+	return txAlbedo.Load(loadpos);
 }

@@ -63,13 +63,3 @@ PSOUTPUT PS( PSINPUT input )
 	
 	return output ;
 }
-
-float4 PSDebug( PSINPUT input ) : SV_Target 
-{ 
-	float3 diffuseAlbedo = txDiffuse.Sample(samLinear, input.Tex).rgb;
-	
-	return float4(input.PosW, 1.0f);
-	//return float4(normalize(input.NorW), 1.0f);
-	return float4(diffuseAlbedo, 1.0f);
-
-}

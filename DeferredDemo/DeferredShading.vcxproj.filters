@@ -33,17 +33,17 @@
     <ClInclude Include="Vertex.h">
       <Filter>StateObjects</Filter>
     </ClInclude>
-    <ClInclude Include="CascadedShadowMap.h">
-      <Filter>Effects</Filter>
-    </ClInclude>
     <ClInclude Include="SkyBox.h">
-      <Filter>Effects</Filter>
-    </ClInclude>
-    <ClInclude Include="ShadowMap.h">
       <Filter>Effects</Filter>
     </ClInclude>
     <ClInclude Include="Light.h">
       <Filter>Effects</Filter>
+    </ClInclude>
+    <ClInclude Include="CascadedShadowMap.h">
+      <Filter>Geometry</Filter>
+    </ClInclude>
+    <ClInclude Include="ShadowMap.h">
+      <Filter>Geometry</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -80,14 +80,14 @@
     <ClCompile Include="Vertex.cpp">
       <Filter>StateObjects</Filter>
     </ClCompile>
-    <ClCompile Include="CascadedShadowMap.cpp">
-      <Filter>Effects</Filter>
-    </ClCompile>
     <ClCompile Include="SkyBox.cpp">
       <Filter>Effects</Filter>
     </ClCompile>
+    <ClCompile Include="CascadedShadowMap.cpp">
+      <Filter>Geometry</Filter>
+    </ClCompile>
     <ClCompile Include="ShadowMap.cpp">
-      <Filter>Effects</Filter>
+      <Filter>Geometry</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

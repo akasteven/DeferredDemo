@@ -132,13 +132,13 @@ void DemoApp::CreateScreenQuad()
 {
 	Vertex::VertexBase vertex[4];
 
-	vertex[0] = Vertex::VertexBase(-1.0f, -1.0f, 0.0f);
+	vertex[0] = Vertex::VertexBase(-1.0f, -1.0f, 0.5f);
 
-	vertex[1] = Vertex::VertexBase(-1.0f, +1.0f, 0.0f);
+	vertex[1] = Vertex::VertexBase(-1.0f, +1.0f, 0.5f);
 
-	vertex[2] = Vertex::VertexBase(+1.0f, +1.0f, 0.0f);
+	vertex[2] = Vertex::VertexBase(+1.0f, +1.0f, 0.5f);
 
-	vertex[3] = Vertex::VertexBase(+1.0f, -1.0f, 0.0f);
+	vertex[3] = Vertex::VertexBase(+1.0f, -1.0f, 0.5f);
 
 
 	DWORD index[6] = 
@@ -285,41 +285,37 @@ void DemoApp::CreateGBuffer()
 	texDesc.Height = mClientHeight;
 	texDesc.MipLevels = 1;
 	texDesc.ArraySize = 1;
-	texDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+	texDesc.Format =  DXGI_FORMAT_R32G32B32A32_FLOAT;
 
-	texDesc.SampleDesc.Count = 1;
-	texDesc.SampleDesc.Quality = 0;
+	//Check MSAA configuration
+	if (mEnable4xMsaa)
+	{
+		texDesc.SampleDesc.Count = 4;
+		texDesc.SampleDesc.Quality = m4xMsaaQuality - 1;
+	}
+	else
+	{
+		texDesc.SampleDesc.Count = 1;
+		texDesc.SampleDesc.Quality = 0;
+	}
 
 	texDesc.Usage = D3D11_USAGE_DEFAULT;
 	texDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 	texDesc.CPUAccessFlags = 0;
 	texDesc.MiscFlags = 0;
 
-	HR(md3dDevice->CreateTexture2D(&texDesc, 0, &m_pPositionTexture));
-	HR(md3dDevice->CreateTexture2D(&texDesc, 0, &m_pNormalTexture));
+	HR(md3dDevice->CreateTexture2D(&texDesc, NULL, &m_pPositionTexture));
+	HR(md3dDevice->CreateTexture2D(&texDesc, NULL, &m_pNormalTexture));
 	HR(md3dDevice->CreateTexture2D(&texDesc, 0, &m_pAlbedoTexture));
 
-	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc;
-	rtvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-	rtvDesc.Texture2D.MipSlice = 0;
+	HR(md3dDevice->CreateShaderResourceView(m_pPositionTexture, 0, &m_pPositionSRV));
+	HR(md3dDevice->CreateRenderTargetView(m_pPositionTexture, 0, &m_pPositionRTV));
 
+	HR(md3dDevice->CreateShaderResourceView(m_pNormalTexture, 0, &m_pNormalSRV));
+	HR(md3dDevice->CreateRenderTargetView(m_pNormalTexture, 0, &m_pNormalRTV));
 
-	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc;
-	srvDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;;
-	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	srvDesc.Texture2D.MipLevels = texDesc.MipLevels;
-	srvDesc.Texture2D.MostDetailedMip = 0;
-
-	HR(md3dDevice->CreateShaderResourceView(m_pPositionTexture, &srvDesc, &m_pPositionSRV));
-	HR(md3dDevice->CreateRenderTargetView(m_pPositionTexture, &rtvDesc, &m_pPositionRTV));
-
-	HR(md3dDevice->CreateShaderResourceView(m_pNormalTexture, &srvDesc, &m_pNormalSRV));
-	HR(md3dDevice->CreateRenderTargetView(m_pNormalTexture, &rtvDesc, &m_pNormalRTV));
-
-	HR(md3dDevice->CreateShaderResourceView(m_pAlbedoTexture, &srvDesc, &m_pAlbedoSRV));
-	HR(md3dDevice->CreateRenderTargetView(m_pAlbedoTexture, &rtvDesc, &m_pAlbedoRTV));
-
+	HR(md3dDevice->CreateShaderResourceView(m_pAlbedoTexture, 0, &m_pAlbedoSRV));
+	HR(md3dDevice->CreateRenderTargetView(m_pAlbedoTexture, 0, &m_pAlbedoRTV));
 }
 
 bool DemoApp::Init()
@@ -371,19 +367,31 @@ void DemoApp::DrawScene()
 	assert(mSwapChain);
 
 	//Writing to GBuffer
-	float clearColor[4] = { 1.0f, 1.0f,1.0f, 0.0f };
-	ID3D11RenderTargetView * GBufferRenderTargets[3];
-	GBufferRenderTargets[0] = m_pPositionRTV;
-	GBufferRenderTargets[1] = m_pNormalRTV;
-	GBufferRenderTargets[2] = m_pAlbedoRTV;
+	float clearColor[4] = { 1.0f, 1.0f, 1.0f, 0.0f };
+	ID3D11RenderTargetView * GBufferRenderTargets[3] = {
+		m_pPositionRTV, m_pNormalRTV, m_pAlbedoRTV
+	};
 
-	md3dImmediateContext->OMSetRenderTargets(3, GBufferRenderTargets, mDepthStencilView);
 
 	for (UINT i = 0; i < 3; i++)
 	{
 		md3dImmediateContext->ClearRenderTargetView(GBufferRenderTargets[i], clearColor);
 	}
 	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	md3dImmediateContext->OMSetRenderTargets(3, GBufferRenderTargets, mDepthStencilView);
+
+	//Check out number of render targets
+	ID3D11RenderTargetView * pRTVs[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { NULL };
+	ID3D11DepthStencilView *  pDSV = 0;
+
+	md3dImmediateContext->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, pRTVs, &pDSV);
+	assert(pRTVs[0] && pRTVs[1] && pRTVs[2]);
+
+	for (int i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
+	{
+		if (pRTVs[i] != NULL)
+		ReleaseCOM(pRTVs[i]);
+	}
 
 	UINT strides[2] = { sizeof(Vertex::VertexPNT), sizeof(Vertex::VertexIns_Mat) };
 	UINT offsets[2] = { 0, 0 };
@@ -393,33 +401,17 @@ void DemoApp::DrawScene()
 	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 	md3dImmediateContext->IASetInputLayout(InputLayouts::VertexPNT_INS);
 
-	md3dImmediateContext->RSSetState(RenderStates::CullClockwiseRS);
+	md3dImmediateContext->RSSetState(RenderStates::NoCullRS);
 
 	md3dImmediateContext->VSSetShader(m_pGBufferVS, NULL, 0);
 	md3dImmediateContext->PSSetShader(m_pGBufferPS, NULL, 0);
-
-	////Check out number of render targets
-	//ID3D11RenderTargetView * pRTVs[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { NULL };
-	//ID3D11DepthStencilView *  pDSV = 0;
-
-	//md3dImmediateContext->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, pRTVs, &pDSV);
-
-	////assert(pRTVs[0] && pRTVs[1] && pRTVs[2]);
-
-	//UINT counter = 0;
-	//for (int i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
-	//{
-	//	if (pRTVs[i] != NULL)
-	//		counter++;
-	//	ReleaseCOM(pRTVs[i]);
-	//}
 
 	CBPerObject cbPerObj;
 	cbPerObj.isInstancing = 1; 
 	XMMATRIX world = XMMatrixIdentity();
 	cbPerObj.matWorld = XMMatrixTranspose(world);
 	cbPerObj.matWorldInvTranspose = XMMatrixTranspose(MathHelper::InverseTranspose(world));
-	cbPerObj.matWVP = XMMatrixTranspose( world * m_pCamera->GetViewProjMatrix());
+	cbPerObj.matWVP = XMMatrixTranspose(world * m_pCamera->GetViewProjMatrix());
 
 	md3dImmediateContext->UpdateSubresource(m_pCBPerObject, 0, NULL, &cbPerObj, 0, 0);
 	md3dImmediateContext->VSSetConstantBuffers(3, 1, &m_pCBPerObject);
@@ -428,12 +420,13 @@ void DemoApp::DrawScene()
 
 	md3dImmediateContext->DrawIndexedInstanced(mIndexCnt, mInstanceCnt, 0, 0, 0 );
 
+	
 	//Shading Screen Quad Pixels
 	float clearColor2[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
 	md3dImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
 	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, clearColor2);
-	md3dImmediateContext->RSSetState(RenderStates::CullClockwiseRS);
+	md3dImmediateContext->RSSetState(RenderStates::NoCullRS);
 
 	UINT stride[1] = { sizeof(Vertex::VertexBase)};
 	UINT offset[1] = { 0 };
@@ -449,8 +442,8 @@ void DemoApp::DrawScene()
 	md3dImmediateContext->PSSetShaderResources(1, 1, &m_pNormalSRV);
 	md3dImmediateContext->PSSetShaderResources(2, 1, &m_pAlbedoSRV);
 
-	md3dImmediateContext->DrawIndexed(3, 0, 0);
-
+	md3dImmediateContext->DrawIndexed(6, 0, 0);
+	
 	HR(mSwapChain->Present(0, 0));
 }
 
