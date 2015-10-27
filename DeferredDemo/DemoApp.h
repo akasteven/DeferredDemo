@@ -12,6 +12,7 @@ public:
 	void OnResize();
 	void UpdateScene(float dt);
 	void DrawScene();
+	void CalculateFrameStats();
 
 	struct LightParams
 	{

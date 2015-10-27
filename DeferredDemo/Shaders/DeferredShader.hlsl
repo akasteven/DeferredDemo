@@ -36,9 +36,6 @@ void GetAtttributes( in float2 screenpos,  out float3 pos, out float3 norm, out 
 	specPower = albedo.w;
 }
 
-
-
-
 float4 PS_POINTLIGHT(float4 pos : SV_POSITION) : SV_TARGET
 {
 	float3 normal;
@@ -66,7 +63,7 @@ float4 PS_POINTLIGHT(float4 pos : SV_POSITION) : SV_TARGET
 	float3 H = normalize(V + dir);
 	float3 specular = pow(saturate(dot(normal, H)), specularPower) * LightColor * NDL;
 
-	return float4( ( diffuse + specular ) * attenuation, 1.0f );
+	return float4((diffuse + specular) * attenuation , 1.0f);
 }
 
 float4 PS_SPOTLIGHT(float4 pos : SV_POSITION) : SV_TARGET
@@ -78,12 +75,16 @@ float4 PS_SPOTLIGHT(float4 pos : SV_POSITION) : SV_TARGET
 
 	//Sample attributes 
 	GetAtttributes(pos, position, normal, albedo, specularPower);
+
 	//Light direction 
 	float3 dir = LightPos - position;
+
 	//Light distance
 	float dist = length(dir);
+
 	//Normalize light direction vector
 	dir /= dist;
+
 	//Attenuation factor
 	float rho = dot(dir, -LightDir);
 	float attenuation = max(0, 1 - dist / LightRange);// *max(0, 1 - rho / SpotAngle);
@@ -104,6 +105,7 @@ float4 PS_DIRECTIONALLIGHT(float4 pos : SV_POSITION) : SV_TARGET
 
 	//Sample attributes 
 	GetAtttributes(pos, position, normal, albedo, specularPower);
+
 	//Light direction 
 	float3 dir = normalize(-LightDir) ;
 

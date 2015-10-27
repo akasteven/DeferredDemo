@@ -194,7 +194,8 @@ LRESULT DemoBase::MsgProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 
 DemoBase::DemoBase(HINSTANCE hInstance)
 : mhAppInst(hInstance),
-mMainWndCaption(L"D3D11 Application"),
+mMainWndCaption(L"D3D11 Demo"),
+mAdditionalMsg(L""),
 md3dDriverType(D3D_DRIVER_TYPE_HARDWARE),
 mClientWidth(1280),
 mClientHeight(768),
@@ -495,35 +496,5 @@ bool DemoBase::InitDirect3D()
 	OnResize();
 
 	return true;
-}
-
-void DemoBase::CalculateFrameStats()
-{
-	// Code computes the average frames per second, and also the 
-	// average time it takes to render one frame.  These stats 
-	// are appended to the window caption bar.
-
-	static int frameCnt = 0;
-	static float timeElapsed = 0.0f;
-
-	frameCnt++;
-
-	// Compute averages over one second period.
-	if ((mTimer.TotalTime() - timeElapsed) >= 1.0f)
-	{
-		float fps = (float)frameCnt; // fps = frameCnt / 1
-		float mspf = 1000.0f / fps;
-
-		std::wostringstream outs;
-		outs.precision(6);
-		outs << mMainWndCaption << L"    "
-			<< L"FPS: " << fps << L"    "
-			<< L"Frame Time: " << mspf << L" (ms)";
-		SetWindowText(mhMainWnd, outs.str().c_str());
-
-		// Reset for next average.
-		frameCnt = 0;
-		timeElapsed += 1.0f;
-	}
 }
 

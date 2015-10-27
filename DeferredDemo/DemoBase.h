@@ -36,7 +36,7 @@ protected:
 
 	bool InitMainWindow();
 	bool InitDirect3D();
-	void CalculateFrameStats();
+	virtual void CalculateFrameStats() = 0;
 
 protected:
 
@@ -60,6 +60,7 @@ protected:
 	D3D11_VIEWPORT mScreenViewport;
 
 	std::wstring mMainWndCaption;
+	std::wstring mAdditionalMsg;
 	D3D_DRIVER_TYPE md3dDriverType;
 	int mClientWidth;
 	int mClientHeight;
