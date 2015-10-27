@@ -14,7 +14,7 @@ struct CBNeverChanges
 
 struct CBOnResize
 {
-	XMMATRIX mProjection;
+	XMMATRIX m_matProjection;
 };
 
 struct CBPerFrame
@@ -45,6 +45,8 @@ struct CBPerLight
 
 DemoApp::DemoApp(HINSTANCE hInstance)
 :DemoBase(hInstance),
+m_bPointLightSwitch(true),
+m_bDirLightSwitch(true),
 m_pShadingVS(0),
 m_pShadingPSPoint(0),
 m_pShadingPSSpot(0),
@@ -66,8 +68,8 @@ m_pInstancedBuffer(0),
 m_pScreenQuadVB(0),
 m_pScreenQuadIB(0),
 m_pSampleLinear(0),
-mInstanceCnt(1),
-mIndexCnt(0)
+m_InstanceCnt(5),
+m_IndexCnt(0)
 {
 	mRadius = 100;
 	mTheta = float(-0.47f*MathHelper::Pi);
@@ -111,10 +113,20 @@ void DemoApp::OnResize()
 
 void DemoApp::CreateLights()
 {
-	mDirLight.Ambient = XMFLOAT4(0.3f, 0.3f, 0.3f, 1.0f);
-	mDirLight.Diffuse = XMFLOAT4(0.8f, 0.8f, 0.8f, 1.0f);
-	mDirLight.Specular = XMFLOAT4(0.1f, 0.1f, 0.1f, 1.0f);
-	mDirLight.Direction = XMFLOAT3(1.0f, -1.0f, 0.5f);
+	srand((unsigned int)time(0));
+	for (UINT i = 0; i < 10; i++)
+	{
+		LightParams lightP;
+		lightP.LightColor = XMFLOAT3(MathHelper::RandF(), MathHelper::RandF(), MathHelper::RandF());
+		lightP.LightPos = XMFLOAT3(MathHelper::RandF(30.0f, 50.0f), MathHelper::RandF(30.0f, 50.0f), MathHelper::RandF(-50.0f, -30.0f));
+		lightP.LightRange = 100.0f + (double)rand() / (RAND_MAX + 1) * 100.0f;
+		m_vPointLights.push_back(lightP);
+	}
+
+	LightParams lightD;
+	lightD.LightColor = XMFLOAT3(MathHelper::RandF(), MathHelper::RandF(), MathHelper::RandF());
+	lightD.LightDir = XMFLOAT3(MathHelper::RandF(), MathHelper::RandF(), MathHelper::RandF());
+	m_vDirLights.push_back(lightD);
 }
 
 void DemoApp::CreateShaders()
@@ -193,8 +205,8 @@ void DemoApp::CreateScreenQuad()
 void DemoApp::CreateGeometry()
 {
 	GeoGenerator::Mesh sphere;
-	GeoGenerator::GenSphere(10, 100, 100, sphere);
-	mIndexCnt = sphere.indices.size();
+	GeoGenerator::GenSphere(5, 10, 10, sphere);
+	m_IndexCnt = sphere.indices.size();
 	//Vertex
 	D3D11_BUFFER_DESC vertexDesc;
 	ZeroMemory(&vertexDesc, sizeof(vertexDesc));
@@ -224,11 +236,26 @@ void DemoApp::CreateGeometry()
 	//Pillars per instance data
 	std::vector<Vertex::VertexIns_Mat> matWorld;
 	Vertex::VertexIns_Mat trans;
-	for (int i = 0; i < mInstanceCnt; i++)
+
+	float interval = 20;
+	float startpos = -1.0f * int ( m_InstanceCnt / 2 ) * interval;
+
+	for (UINT i = 0; i < m_InstanceCnt; i++)
 	{
-		trans.mat = XMMatrixTranslation(0.0f, 0.0f, 0.0f);
-		matWorld.push_back(trans);
+		float row = startpos + i * interval;
+		for (UINT j = 0; j < m_InstanceCnt; j++)
+		{
+			float col = startpos + j * interval;
+			for (UINT k = 0; k < m_InstanceCnt ; k++)
+			{
+				float depth = startpos + k  * interval;
+				trans.mat = XMMatrixTranslation(col , row, depth);
+				matWorld.push_back(trans);
+			}
+		}
 	}
+
+	m_InstanceCnt = m_InstanceCnt * m_InstanceCnt * m_InstanceCnt;
 	vertexDesc.ByteWidth = sizeof(Vertex::VertexIns_Mat) * matWorld.size();
 	data.pSysMem = &matWorld[0];
 	HR(md3dDevice->CreateBuffer(&vertexDesc, &data, &m_pInstancedBuffer));
@@ -256,7 +283,7 @@ void DemoApp::CreateContantBuffers()
 	desc.ByteWidth = sizeof(CBPerObject);
 	HR(md3dDevice->CreateBuffer(&desc, 0, &m_pCBPerObject));
 
-	desc.ByteWidth = sizeof(CBPerLight);
+	desc.ByteWidth = sizeof(LightParams);
 	HR(md3dDevice->CreateBuffer(&desc, 0, &m_pCBPerLight));
 
 }
@@ -281,7 +308,11 @@ void DemoApp::CreateSamplerStates()
 void DemoApp::SetUpSceneConsts()
 {
 	m_pCamera->Setup(XM_PIDIV4, mClientWidth / (float)mClientHeight, 0.01f, 1000.0f);
-	m_pCamera->SetPosition(XMFLOAT3(0.0f, 0.0f, -100.0f));
+	m_pCamera->SetPosition(XMFLOAT3(100.0f, 100.0f, -100.0f));
+	m_pCamera->Yaw( - 1.0f * XM_PIDIV4);
+	m_pCamera->Pitch( XM_PI / 5.0f);
+	//m_pCamera->SetPosition(XMFLOAT3(0.0f, 0.0f, -100.0f));
+
 }
 
 void DemoApp::CreateRenderStates()
@@ -349,17 +380,27 @@ bool DemoApp::Init()
 void DemoApp::UpdateScene(float dt)
 {
 	if (GetAsyncKeyState('W') & 0x8000)
-		m_pCamera->MoveForward(10.0f * dt);
+		m_pCamera->MoveForward(30.0f * dt);
 	if (GetAsyncKeyState('S') & 0x8000)
-		m_pCamera->MoveForward(-10.0f*dt);
+		m_pCamera->MoveForward(-30.0f*dt);
 	if (GetAsyncKeyState('D') & 0x8000)
-		m_pCamera->MoveRight(10.0f *dt);
+		m_pCamera->MoveRight(30.0f *dt);
 	if (GetAsyncKeyState('A') & 0x8000)
-		m_pCamera->MoveRight(-10.0f *dt);
+		m_pCamera->MoveRight(-30.0f *dt);
 	if (GetAsyncKeyState('E') & 0x8000)
-		m_pCamera->Elevate(10.0f *dt);
+		m_pCamera->Elevate(30.0f *dt);
 	if (GetAsyncKeyState('Q') & 0x8000)
-		m_pCamera->Elevate(-10.0f *dt);
+		m_pCamera->Elevate(-30.0f *dt);
+
+	if (GetAsyncKeyState('N') & 0x8000)
+		m_bPointLightSwitch = false;
+	if (GetAsyncKeyState('M') & 0x8000)
+		m_bPointLightSwitch = true;
+	if (GetAsyncKeyState('V') & 0x8000)
+		m_bDirLightSwitch = false;
+	if (GetAsyncKeyState('B') & 0x8000)
+		m_bDirLightSwitch = true;
+
 
 	//Update Per Frame Constant Buffer
 	CBPerFrame cbPerFrame;
@@ -367,7 +408,7 @@ void DemoApp::UpdateScene(float dt)
 	md3dImmediateContext->UpdateSubresource(m_pCBPerFrame, 0, NULL, &cbPerFrame, 0, 0);
 	md3dImmediateContext->VSSetConstantBuffers(2, 1, &m_pCBPerFrame);
 	md3dImmediateContext->PSSetConstantBuffers(2, 1, &m_pCBPerFrame);
-	mWorld = XMMatrixIdentity();
+	m_matWorld = XMMatrixIdentity();
 
 	m_pCamera->Update();
 }
@@ -387,6 +428,8 @@ void DemoApp::DrawScene()
 	}
 	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 	md3dImmediateContext->OMSetRenderTargets(3, GBufferRenderTargets, mDepthStencilView);
+
+	md3dImmediateContext->OMSetDepthStencilState(NULL, 0x1);
 
 	////Check out number of render targets
 	//ID3D11RenderTargetView * pRTVs[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { NULL };
@@ -423,12 +466,13 @@ void DemoApp::DrawScene()
 	md3dImmediateContext->PSSetShaderResources(0, 1, &m_pSphereSRV);
 	md3dImmediateContext->PSSetSamplers(0, 1, &m_pSampleLinear);
 
-	md3dImmediateContext->DrawIndexedInstanced(mIndexCnt, mInstanceCnt, 0, 0, 0 );
+	md3dImmediateContext->DrawIndexedInstanced(m_IndexCnt, m_InstanceCnt , 0, 0, 0 );
 
 	//Shading Screen Quad Pixels
 	md3dImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
 	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, clearColor);
+	md3dImmediateContext->OMSetDepthStencilState(RenderStates::DeferredScreenQuadDSS, 0x1);
 
 	UINT stride[1] = { sizeof(Vertex::VertexBase)};
 	UINT offset[1] = { 0 };
@@ -437,19 +481,37 @@ void DemoApp::DrawScene()
 	md3dImmediateContext->IASetIndexBuffer(m_pScreenQuadIB, DXGI_FORMAT_R32_UINT, 0);
 	md3dImmediateContext->IASetInputLayout(InputLayouts::VertexP);
 	md3dImmediateContext->VSSetShader(m_pShadingVS, NULL, 0);
-	md3dImmediateContext->PSSetShader(m_pShadingPSDirectional, NULL, 0);
 
-	CBPerLight cbPerLight;
-	cbPerLight.LightColor = XMFLOAT3 (0.0f, 0.5f, 0.5f);
-	cbPerLight.LightDir = XMFLOAT3(-1.0f, -1.0f, 1.0f);
-	md3dImmediateContext->UpdateSubresource(m_pCBPerLight, 0, NULL, &cbPerLight, 0, 0);
-	md3dImmediateContext->PSSetConstantBuffers(3, 1, &m_pCBPerLight);
 	md3dImmediateContext->PSSetShaderResources(0, 1, &m_pPositionSRV);
 	md3dImmediateContext->PSSetShaderResources(1, 1, &m_pNormalSRV);
 	md3dImmediateContext->PSSetShaderResources(2, 1, &m_pAlbedoSRV);
+	md3dImmediateContext->PSSetConstantBuffers(3, 1, &m_pCBPerLight);
 
-	md3dImmediateContext->DrawIndexed(6, 0, 0);
-	
+
+	//Shading Directional Lights
+	if (m_bDirLightSwitch)
+	{
+		md3dImmediateContext->PSSetShader(m_pShadingPSDirectional, NULL, 0);
+		for (UINT i = 0; i < m_vDirLights.size(); i++)
+		{
+			LightParams cbPerlight = m_vDirLights[i];
+			md3dImmediateContext->UpdateSubresource(m_pCBPerLight, 0, NULL, &cbPerlight, 0, 0);
+			md3dImmediateContext->DrawIndexed(6, 0, 0);
+		}
+	}
+
+	//Shading Point Lights
+	if (m_bPointLightSwitch)
+	{
+		md3dImmediateContext->PSSetShader(m_pShadingPSPoint, NULL, 0);
+		for (UINT j = 0; j < m_vPointLights.size(); j++)
+		{
+			LightParams cbPerlight = m_vPointLights[j];
+			md3dImmediateContext->UpdateSubresource(m_pCBPerLight, 0, NULL, &cbPerlight, 0, 0);
+			md3dImmediateContext->DrawIndexed(6, 0, 0);
+		}
+	}
+
 	HR(mSwapChain->Present(0, 0));
 }
 

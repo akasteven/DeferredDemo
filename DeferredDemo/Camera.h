@@ -23,6 +23,8 @@ public:
 	void Roll(float x);
 	void Yaw(float x);
 
+	void SetSpeed(float speed);
+
 	XMMATRIX GetViewMatrix() const;
 	XMMATRIX GetProjMatrix() const;
 	XMMATRIX GetViewProjMatrix() const;
@@ -32,14 +34,15 @@ public:
 
 private:
 
-	XMFLOAT4X4 mView;
-	XMFLOAT4X4 mProj;
-	XMFLOAT4X4 mViewProj;
+	XMFLOAT4X4 m_matView;
+	XMFLOAT4X4 m_matProj;
+	XMFLOAT4X4 m_matViewProj;
 
 	float fov;
 	float aspectRatio;
 	float nearZ;
 	float farZ;
+	float mMoveSpeed;
 
 	XMFLOAT3 mPos;
 	XMFLOAT3 mRight;

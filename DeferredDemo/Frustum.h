@@ -11,7 +11,7 @@ public:
 
 	void static ComputeFrustumCorners(float beg, float end, XMMATRIX & proj, std::vector<XMVECTOR> & corners);
 
-	void static ComputeFrustumFromProjection(Frustum* pOut, XMMATRIX* pProjection);
+	void static ComputeFrustumFrom_matProjection(Frustum* pOut, XMMATRIX* pProjection);
 
 
 	XMFLOAT3 Origin;            // Origin of the frustum (and projection).

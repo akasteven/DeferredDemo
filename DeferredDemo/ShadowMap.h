@@ -22,6 +22,6 @@ private:
 	ID3D11ShaderResourceView *mDepthSRV;
 	ID3D11DepthStencilView * mDepthDSV;
 
-	D3D11_VIEWPORT mViewport;
+	D3D11_VIEWPORT m_matViewport;
 };
 

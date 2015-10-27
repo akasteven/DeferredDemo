@@ -9,7 +9,7 @@
 
 #include <Windows.h>
 #include <xnamath.h>
-
+#include <time.h>
 class MathHelper
 {
 public:

@@ -14,6 +14,9 @@ ID3D11BlendState*      RenderStates::AlphaToCoverageBS      = 0;
 ID3D11BlendState*      RenderStates::TransparentBS          = 0;
 ID3D11BlendState*      RenderStates::NoRenderTargetWritesBS = 0;
 
+ID3D11DepthStencilState* RenderStates::DeferredScreenQuadDSS = 0;
+
+
 void RenderStates::InitAll(ID3D11Device* device)
 {
 	// WireframeRS
@@ -99,6 +102,13 @@ void RenderStates::InitAll(ID3D11Device* device)
 	noRenderTargetWritesDesc.RenderTarget[0].BlendOpAlpha   = D3D11_BLEND_OP_ADD;
 	noRenderTargetWritesDesc.RenderTarget[0].RenderTargetWriteMask = 0;
 	HR(device->CreateBlendState(&noRenderTargetWritesDesc, &NoRenderTargetWritesBS));
+
+	D3D11_DEPTH_STENCIL_DESC deferredScreenQuadPassDesc = { 0 };
+	deferredScreenQuadPassDesc.DepthEnable = true;
+	deferredScreenQuadPassDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ALL;
+	deferredScreenQuadPassDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+	deferredScreenQuadPassDesc.StencilEnable = false;
+	HR(device->CreateDepthStencilState(&deferredScreenQuadPassDesc, &DeferredScreenQuadDSS));
 }
 
 void RenderStates::DestroyAll()
@@ -111,4 +121,5 @@ void RenderStates::DestroyAll()
 	ReleaseCOM(AlphaToCoverageBS);
 	ReleaseCOM(TransparentBS);
 	ReleaseCOM(NoRenderTargetWritesBS);
+	ReleaseCOM(DeferredScreenQuadDSS);
 }

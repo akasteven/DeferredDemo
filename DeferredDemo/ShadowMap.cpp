@@ -4,12 +4,12 @@
 ShadowMap::ShadowMap(ID3D11Device *device, UINT width, UINT height)
 :mWidth(width), mHeight(height), mDepthDSV(0), mDepthSRV(0), mEnable4xMsaa(0), m4xMsaaQuality(0)
 {
-	mViewport.TopLeftX = 0.0f;
-	mViewport.TopLeftY = 0.0f;
-	mViewport.Width = static_cast<float>(width);
-	mViewport.Height = static_cast<float>(height);
-	mViewport.MinDepth = 0.0f;
-	mViewport.MaxDepth = 1.0f;
+	m_matViewport.TopLeftX = 0.0f;
+	m_matViewport.TopLeftY = 0.0f;
+	m_matViewport.Width = static_cast<float>(width);
+	m_matViewport.Height = static_cast<float>(height);
+	m_matViewport.MinDepth = 0.0f;
+	m_matViewport.MaxDepth = 1.0f;
 
 	D3D11_TEXTURE2D_DESC texDesc;
 	texDesc.Width = mWidth;
@@ -60,7 +60,7 @@ ID3D11ShaderResourceView * ShadowMap::DepthShaderResourceView()
 
 void ShadowMap::BindShadowMapDSV(ID3D11DeviceContext * context)
 {
-	context->RSSetViewports(1, &mViewport);
+	context->RSSetViewports(1, &m_matViewport);
 	ID3D11RenderTargetView * renderTargets[1] = {0};
 	context->OMSetRenderTargets(1, renderTargets, mDepthDSV);
 	context->ClearDepthStencilView(mDepthDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);

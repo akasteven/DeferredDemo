@@ -5,7 +5,8 @@ Camera::Camera()
 :mPos(0.0f, 0.0f, 0.0f),
 mRight(1.0f, 0.0f, 0.0f),
 mUp(0.0f, 1.0f, 0.0f),
-mLook(0.0f, 0.0f, 1.0f)
+mLook(0.0f, 0.0f, 1.0f),
+mMoveSpeed(10.0f)
 {
 }
 
@@ -69,14 +70,20 @@ void Camera::Yaw(float x)
 	XMStoreFloat3(&mLook, XMVector3TransformNormal(XMLoadFloat3(&mLook), rotate));
 }
 
+void Camera::SetSpeed(float speed)
+{
+	mMoveSpeed = speed;
+}
+
+
 XMMATRIX Camera::GetViewMatrix() const
 {
-	return XMLoadFloat4x4(&mView);
+	return XMLoadFloat4x4(&m_matView);
 }
 
 XMMATRIX Camera::GetProjMatrix() const
 {
-	return XMLoadFloat4x4(&mProj);
+	return XMLoadFloat4x4(&m_matProj);
 }
 
 XMMATRIX Camera::GetViewProjMatrix() const
@@ -101,7 +108,7 @@ void Camera::Setup(float fv, float asp, float nz, float fz)
 	nearZ = nz;
 	farZ = fz;
 	XMMATRIX P = XMMatrixPerspectiveFovLH(fv, asp, nz, fz);
-	XMStoreFloat4x4(&mProj, P);
+	XMStoreFloat4x4(&m_matProj, P);
 }
 
 void Camera::Update()
@@ -129,5 +136,5 @@ void Camera::Update()
 		mRight.z, mUp.z, mLook.z, 0.0f,
 		x, y, z, 1.0f );
 
-	XMStoreFloat4x4(&mView, V);
+	XMStoreFloat4x4(&m_matView, V);
 }

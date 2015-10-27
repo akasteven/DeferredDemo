@@ -10,7 +10,7 @@ Frustum::~Frustum()
 {
 }
 
-void Frustum::ComputeFrustumFromProjection(Frustum* pOut, XMMATRIX* pProjection)
+void Frustum::ComputeFrustumFrom_matProjection(Frustum* pOut, XMMATRIX* pProjection)
 {
 	XMASSERT(pOut);
 	XMASSERT(pProjection);
@@ -66,7 +66,7 @@ void Frustum::ComputeFrustumFromProjection(Frustum* pOut, XMMATRIX* pProjection)
 void Frustum::ComputeFrustumCorners(float nearZ, float farZ, XMMATRIX & proj, std::vector<XMVECTOR> & corners)
 {
 	Frustum viewFrust;
-	ComputeFrustumFromProjection(&viewFrust, &proj);
+	ComputeFrustumFrom_matProjection(&viewFrust, &proj);
 	viewFrust.Near = nearZ;
 	viewFrust.Far = farZ;
 

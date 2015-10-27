@@ -79,7 +79,7 @@ float4 PS_SPOTLIGHT(float4 pos : SV_POSITION) : SV_TARGET
 	dir /= dist;
 	//Attenuation factor
 	float rho = dot(dir, -LightDir);
-	float attenuation = max(0, 1 - dist / LightRange) * max(0, 1 - rho / SpotAngle );
+	float attenuation = max(0, 1 - dist / LightRange);// *max(0, 1 - rho / SpotAngle);
 
 	//Calculate diffuse
 	float NDL = saturate(dot(normal, dir));

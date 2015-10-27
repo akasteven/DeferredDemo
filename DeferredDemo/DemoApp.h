@@ -13,6 +13,16 @@ public:
 	void UpdateScene(float dt);
 	void DrawScene();
 
+	struct LightParams
+	{
+		XMFLOAT3 LightDir;
+		float  LightRange;
+		XMFLOAT3 LightColor;
+		float SpotAngle;
+		XMFLOAT3 LightPos;
+		float padding;
+	};
+
 private:
 
 	//Common setups
@@ -24,11 +34,17 @@ private:
 	void CreateSamplerStates();
 	void SetUpSceneConsts();
 	void CreateLights();
-
 	void CreateGBuffer();
 
-
 private:
+
+	//Light Sources
+	std::vector<LightParams> m_vSpotLights;
+	std::vector<LightParams> m_vPointLights;
+	std::vector<LightParams> m_vDirLights;
+
+	bool m_bPointLightSwitch;
+	bool m_bDirLightSwitch;
 
 	//GBuffer Resource Views and Render Target Views
 	ID3D11ShaderResourceView * m_pPositionSRV;
@@ -72,17 +88,14 @@ private:
 	ID3D11SamplerState * m_pSampleLinear;
 
 	//Matrices
-	XMMATRIX mWorld;
-	XMMATRIX mView;
-	XMMATRIX mProj;
+	XMMATRIX m_matWorld;
+	XMMATRIX m_matView;
+	XMMATRIX m_matProj;
 
-	//Lights
-	DirectionalLight mDirLight;
-	PointLight mPointLight;
 
 	//Scene Parameter
-	UINT mInstanceCnt;
-	UINT mIndexCnt;
+	UINT m_InstanceCnt;
+	UINT m_IndexCnt;
 	
 };
 
