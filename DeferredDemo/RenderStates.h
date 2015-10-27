@@ -26,6 +26,7 @@ public:
 	static ID3D11BlendState* TransparentBS;
 	static ID3D11BlendState* NoRenderTargetWritesBS;
 
+	static ID3D11BlendState* DeferredScreenQuadBS;
 	// Depth/stencil states
 	static ID3D11DepthStencilState* DeferredScreenQuadDSS ;
 };

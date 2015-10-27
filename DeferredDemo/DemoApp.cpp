@@ -69,7 +69,8 @@ m_pScreenQuadVB(0),
 m_pScreenQuadIB(0),
 m_pSampleLinear(0),
 m_InstanceCnt(5),
-m_IndexCnt(0)
+m_IndexCnt(0),
+m_LightCnt(0)
 {
 	mRadius = 100;
 	mTheta = float(-0.47f*MathHelper::Pi);
@@ -114,19 +115,60 @@ void DemoApp::OnResize()
 void DemoApp::CreateLights()
 {
 	srand((unsigned int)time(0));
-	for (UINT i = 0; i < 10; i++)
+
+	float dis = 50.0f;
+	XMFLOAT3 lightPos[14] = 
+	{
+		//Top lights
+		XMFLOAT3(-dis, dis, dis),
+		XMFLOAT3(dis, dis, dis),
+		XMFLOAT3(0.0f, dis, 0.0f),
+		XMFLOAT3(-dis, dis, -dis),
+		XMFLOAT3(dis, dis, -dis),
+
+
+		//Middle Lights 
+		XMFLOAT3(0.0f, 0.0f, dis),
+		XMFLOAT3(dis, 0.0f, 0.0f),
+		XMFLOAT3(0.0f, 0.0f, -dis),
+		XMFLOAT3(-dis, 0.0f, 0.0f),
+
+		//Bottom lights
+		XMFLOAT3(-dis, -dis, dis),
+		XMFLOAT3(dis, -dis, dis),
+		XMFLOAT3(0.0f, -dis, 0.0f),
+		XMFLOAT3(-dis, -dis, -dis),
+		XMFLOAT3(dis, -dis, -dis)
+	};
+
+	for (UINT i = 0; i < 14; i++)
 	{
 		LightParams lightP;
 		lightP.LightColor = XMFLOAT3(MathHelper::RandF(), MathHelper::RandF(), MathHelper::RandF());
-		lightP.LightPos = XMFLOAT3(MathHelper::RandF(30.0f, 50.0f), MathHelper::RandF(30.0f, 50.0f), MathHelper::RandF(-50.0f, -30.0f));
-		lightP.LightRange = 100.0f + (double)rand() / (RAND_MAX + 1) * 100.0f;
+		lightP.LightPos = lightPos[i];
+		lightP.LightRange = 70.0f;
 		m_vPointLights.push_back(lightP);
 	}
+
+		//// Debug Multiple Lights
+		//LightParams lightP;
+		//lightP.LightColor = XMFLOAT3(0.0f, 1.0f, 0.0f);
+		//lightP.LightPos = XMFLOAT3(50.0f, 50.0f, 50.0f);
+		//lightP.LightRange = 200.0f;
+		//m_vPointLights.push_back(lightP);
+
+		//lightP.LightColor = XMFLOAT3(1.0f, 1.0f, 1.0f);
+		//lightP.LightPos = XMFLOAT3(-50.0f, 50.0f, -50.0f);
+		//lightP.LightRange = 200.0f;
+		//m_vPointLights.push_back(lightP);
 
 	LightParams lightD;
 	lightD.LightColor = XMFLOAT3(MathHelper::RandF(), MathHelper::RandF(), MathHelper::RandF());
 	lightD.LightDir = XMFLOAT3(MathHelper::RandF(), MathHelper::RandF(), MathHelper::RandF());
 	m_vDirLights.push_back(lightD);
+
+	m_LightCnt = m_vDirLights.size() + m_vPointLights.size();
+
 }
 
 void DemoApp::CreateShaders()
@@ -417,9 +459,12 @@ void DemoApp::DrawScene()
 {
 	assert(md3dImmediateContext);
 	assert(mSwapChain);
+	assert(m_LightCnt >0);
 
 	//Writing to GBuffer
-	float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	float clearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f };
+	float blendFactors[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+
 	ID3D11RenderTargetView * GBufferRenderTargets[3] = { m_pPositionRTV, m_pNormalRTV, m_pAlbedoRTV };
 
 	for (UINT i = 0; i < 3; i++)
@@ -430,6 +475,7 @@ void DemoApp::DrawScene()
 	md3dImmediateContext->OMSetRenderTargets(3, GBufferRenderTargets, mDepthStencilView);
 
 	md3dImmediateContext->OMSetDepthStencilState(NULL, 0x1);
+	md3dImmediateContext->OMSetBlendState(NULL, blendFactors, 0xffffffff);
 
 	////Check out number of render targets
 	//ID3D11RenderTargetView * pRTVs[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { NULL };
@@ -486,7 +532,7 @@ void DemoApp::DrawScene()
 	md3dImmediateContext->PSSetShaderResources(1, 1, &m_pNormalSRV);
 	md3dImmediateContext->PSSetShaderResources(2, 1, &m_pAlbedoSRV);
 	md3dImmediateContext->PSSetConstantBuffers(3, 1, &m_pCBPerLight);
-
+	md3dImmediateContext->OMSetBlendState(RenderStates::DeferredScreenQuadBS, blendFactors, 0xffffffff);
 
 	//Shading Directional Lights
 	if (m_bDirLightSwitch)

@@ -96,6 +96,6 @@ private:
 	//Scene Parameter
 	UINT m_InstanceCnt;
 	UINT m_IndexCnt;
-	
+	UINT m_LightCnt;
 };
 
