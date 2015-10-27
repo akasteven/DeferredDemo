@@ -26,12 +26,14 @@ float4 VS( float3 position : POSITION  ) : SV_POSITION
 	return  float4( position, 1.0f ) ;
 }
 
-void GetAtttributes( in float2 screenpos,  out float3 pos, out float3 norm, out float3 abd)
+void GetAtttributes( in float2 screenpos,  out float3 pos, out float3 norm, out float3 abd, out float specPower)
 {
 	int3 idx = int3(screenpos.xy, 0);
 	pos = txPosition.Load(idx).xyz;
 	norm = txNormal.Load(idx).xyz;
-	abd = txAlbedo.Load(idx).xyz; 
+	float4 albedo = txAlbedo.Load(idx);
+	abd = albedo.xyz;
+	specPower = albedo.w;
 }
 
 
@@ -42,10 +44,10 @@ float4 PS_POINTLIGHT(float4 pos : SV_POSITION) : SV_TARGET
 	float3 normal;
 	float3 position;
 	float3 albedo;
-	float3 specularPower;
+	float specularPower;
 
 	//Sample attributes 
-	GetAtttributes( pos, position, normal, albedo);
+	GetAtttributes(pos, position, normal, albedo, specularPower);
 	//Light direction 
 	float3 dir = LightPos - position;
 	//Light distance
@@ -59,7 +61,12 @@ float4 PS_POINTLIGHT(float4 pos : SV_POSITION) : SV_TARGET
 	float NDL = saturate(dot(normal, dir));
 	float3 diffuse = NDL * LightColor * albedo;
 
-	return float4( diffuse * attenuation, 1.0f );
+	//Calculate Specular
+	float3 V = eyePos - position;
+	float3 H = normalize(V + dir);
+	float3 specular = pow(saturate(dot(normal, H)), specularPower) * LightColor * NDL;
+
+	return float4( ( diffuse + specular ) * attenuation, 1.0f );
 }
 
 float4 PS_SPOTLIGHT(float4 pos : SV_POSITION) : SV_TARGET
@@ -67,10 +74,10 @@ float4 PS_SPOTLIGHT(float4 pos : SV_POSITION) : SV_TARGET
 	float3 normal;
 	float3 position;
 	float3 albedo;
-	float3 specularPower;
+	float specularPower;
 
 	//Sample attributes 
-	GetAtttributes(pos, position, normal, albedo);
+	GetAtttributes(pos, position, normal, albedo, specularPower);
 	//Light direction 
 	float3 dir = LightPos - position;
 	//Light distance
@@ -93,10 +100,10 @@ float4 PS_DIRECTIONALLIGHT(float4 pos : SV_POSITION) : SV_TARGET
 	float3 normal;
 	float3 position;
 	float3 albedo;
-	float3 specularPower;
+	float specularPower;
 
 	//Sample attributes 
-	GetAtttributes(pos, position, normal, albedo);
+	GetAtttributes(pos, position, normal, albedo, specularPower);
 	//Light direction 
 	float3 dir = normalize(-LightDir) ;
 
@@ -104,5 +111,10 @@ float4 PS_DIRECTIONALLIGHT(float4 pos : SV_POSITION) : SV_TARGET
 	float NDL = saturate(dot(normal, dir));
 	float3 diffuse = NDL * LightColor * albedo;
 
-	return float4(diffuse , 1.0f);
+	//Calculate Specular
+	float3 V = eyePos - position;
+	float3 H = normalize(V + dir);
+	float3 specular = pow(saturate(dot(normal, H)), specularPower) * LightColor * NDL;
+
+	return float4((diffuse + specular), 1.0f);
 }

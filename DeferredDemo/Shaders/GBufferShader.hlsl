@@ -7,7 +7,8 @@ cbuffer cbPerObject: register( b3 )
     float4x4 matWVP;
 	float4x4 matWorldInvTranspose;
 	int isInstancing;
-	float3 padding;
+	float specularPower;
+	float2 padding;
 };
 
 
@@ -59,7 +60,7 @@ PSOUTPUT PS( PSINPUT input )
 	float3 diffuseAlbedo = txDiffuse.Sample(samLinear, input.Tex).rgb ;
 	output.Position = float4( input.PosW, 1.0f );
 	output.Normal = float4(normalize(input.NorW), 1.0f ) ;
-	output.Albedo = float4(diffuseAlbedo, 1.0f);
+	output.Albedo = float4(diffuseAlbedo, specularPower);
 	
 	return output ;
 }

@@ -29,7 +29,8 @@ struct CBPerObject
 	XMMATRIX matWVP;
 	XMMATRIX matWorldInvTranspose;
 	int isInstancing;
-	XMFLOAT3 padding;
+	float specularPower;
+	XMFLOAT2 padding;
 };
 
 struct CBPerLight
@@ -146,21 +147,9 @@ void DemoApp::CreateLights()
 		LightParams lightP;
 		lightP.LightColor = XMFLOAT3(MathHelper::RandF(), MathHelper::RandF(), MathHelper::RandF());
 		lightP.LightPos = lightPos[i];
-		lightP.LightRange = 70.0f;
+		lightP.LightRange = 60;
 		m_vPointLights.push_back(lightP);
 	}
-
-		//// Debug Multiple Lights
-		//LightParams lightP;
-		//lightP.LightColor = XMFLOAT3(0.0f, 1.0f, 0.0f);
-		//lightP.LightPos = XMFLOAT3(50.0f, 50.0f, 50.0f);
-		//lightP.LightRange = 200.0f;
-		//m_vPointLights.push_back(lightP);
-
-		//lightP.LightColor = XMFLOAT3(1.0f, 1.0f, 1.0f);
-		//lightP.LightPos = XMFLOAT3(-50.0f, 50.0f, -50.0f);
-		//lightP.LightRange = 200.0f;
-		//m_vPointLights.push_back(lightP);
 
 	LightParams lightD;
 	lightD.LightColor = XMFLOAT3(MathHelper::RandF(), MathHelper::RandF(), MathHelper::RandF());
@@ -247,8 +236,9 @@ void DemoApp::CreateScreenQuad()
 void DemoApp::CreateGeometry()
 {
 	GeoGenerator::Mesh sphere;
-	GeoGenerator::GenSphere(5, 10, 10, sphere);
+	GeoGenerator::GenSphere(5, 50, 50, sphere);
 	m_IndexCnt = sphere.indices.size();
+
 	//Vertex
 	D3D11_BUFFER_DESC vertexDesc;
 	ZeroMemory(&vertexDesc, sizeof(vertexDesc));
@@ -332,7 +322,7 @@ void DemoApp::CreateContantBuffers()
 
 void DemoApp::CreateSamplerStates()
 {
-	HR(D3DX11CreateShaderResourceViewFromFile(md3dDevice, L"..//Resources//OceanBlue.jpg", 0, 0, &m_pSphereSRV, 0));
+	HR(D3DX11CreateShaderResourceViewFromFile(md3dDevice, L"..//Resources//Ground.jpg", 0, 0, &m_pSphereSRV, 0));
 
 	D3D11_SAMPLER_DESC desc; 
 	ZeroMemory(&desc, sizeof(desc));
@@ -353,7 +343,6 @@ void DemoApp::SetUpSceneConsts()
 	m_pCamera->SetPosition(XMFLOAT3(100.0f, 100.0f, -100.0f));
 	m_pCamera->Yaw( - 1.0f * XM_PIDIV4);
 	m_pCamera->Pitch( XM_PI / 5.0f);
-	//m_pCamera->SetPosition(XMFLOAT3(0.0f, 0.0f, -100.0f));
 
 }
 
@@ -457,38 +446,18 @@ void DemoApp::UpdateScene(float dt)
 
 void DemoApp::DrawScene()
 {
-	assert(md3dImmediateContext);
-	assert(mSwapChain);
-	assert(m_LightCnt >0);
-
-	//Writing to GBuffer
 	float clearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f };
 	float blendFactors[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
+	//Write to GBuffer
 	ID3D11RenderTargetView * GBufferRenderTargets[3] = { m_pPositionRTV, m_pNormalRTV, m_pAlbedoRTV };
-
 	for (UINT i = 0; i < 3; i++)
-	{
 		md3dImmediateContext->ClearRenderTargetView(GBufferRenderTargets[i], clearColor);
-	}
+
 	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 	md3dImmediateContext->OMSetRenderTargets(3, GBufferRenderTargets, mDepthStencilView);
-
 	md3dImmediateContext->OMSetDepthStencilState(NULL, 0x1);
 	md3dImmediateContext->OMSetBlendState(NULL, blendFactors, 0xffffffff);
-
-	////Check out number of render targets
-	//ID3D11RenderTargetView * pRTVs[D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT] = { NULL };
-	//ID3D11DepthStencilView *  pDSV = 0;
-
-	//md3dImmediateContext->OMGetRenderTargets(D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT, pRTVs, &pDSV);
-	//assert(pRTVs[0] && pRTVs[1] && pRTVs[2]);
-
-	//for (int i = 0; i < D3D11_SIMULTANEOUS_RENDER_TARGET_COUNT; i++)
-	//{
-	//	if (pRTVs[i] != NULL)
-	//	ReleaseCOM(pRTVs[i]);
-	//}
 
 	UINT strides[2] = { sizeof(Vertex::VertexPNT), sizeof(Vertex::VertexIns_Mat) };
 	UINT offsets[2] = { 0, 0 };
@@ -503,22 +472,25 @@ void DemoApp::DrawScene()
 
 	CBPerObject cbPerObj;
 	cbPerObj.isInstancing = 1; 
+	cbPerObj.specularPower = 30;
 	XMMATRIX world = XMMatrixIdentity();
 	cbPerObj.matWorld = XMMatrixTranspose(world);
 	cbPerObj.matWorldInvTranspose = XMMatrixTranspose(MathHelper::InverseTranspose(world));
 	cbPerObj.matWVP = XMMatrixTranspose(world * m_pCamera->GetViewProjMatrix());
 	md3dImmediateContext->UpdateSubresource(m_pCBPerObject, 0, NULL, &cbPerObj, 0, 0);
 	md3dImmediateContext->VSSetConstantBuffers(3, 1, &m_pCBPerObject);
+	md3dImmediateContext->PSSetConstantBuffers(3, 1, &m_pCBPerObject);
 	md3dImmediateContext->PSSetShaderResources(0, 1, &m_pSphereSRV);
 	md3dImmediateContext->PSSetSamplers(0, 1, &m_pSampleLinear);
 
 	md3dImmediateContext->DrawIndexedInstanced(m_IndexCnt, m_InstanceCnt , 0, 0, 0 );
 
 	//Shading Screen Quad Pixels
-	md3dImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
 	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, clearColor);
+	md3dImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
 	md3dImmediateContext->OMSetDepthStencilState(RenderStates::DeferredScreenQuadDSS, 0x1);
+	md3dImmediateContext->OMSetBlendState(RenderStates::DeferredScreenQuadBS, blendFactors, 0xffffffff);
 
 	UINT stride[1] = { sizeof(Vertex::VertexBase)};
 	UINT offset[1] = { 0 };
@@ -532,7 +504,6 @@ void DemoApp::DrawScene()
 	md3dImmediateContext->PSSetShaderResources(1, 1, &m_pNormalSRV);
 	md3dImmediateContext->PSSetShaderResources(2, 1, &m_pAlbedoSRV);
 	md3dImmediateContext->PSSetConstantBuffers(3, 1, &m_pCBPerLight);
-	md3dImmediateContext->OMSetBlendState(RenderStates::DeferredScreenQuadBS, blendFactors, 0xffffffff);
 
 	//Shading Directional Lights
 	if (m_bDirLightSwitch)
