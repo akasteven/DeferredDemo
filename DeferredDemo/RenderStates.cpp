@@ -17,7 +17,7 @@ ID3D11BlendState*      RenderStates::NoRenderTargetWritesBS = 0;
 
 ID3D11BlendState* RenderStates::DeferredScreenQuadBS = 0;
 ID3D11DepthStencilState* RenderStates::DeferredScreenQuadDSS = 0;
-
+ID3D11DepthStencilState* RenderStates::DisableZWriteDSS = 0;
 
 void RenderStates::InitAll(ID3D11Device* device)
 {
@@ -128,6 +128,14 @@ void RenderStates::InitAll(ID3D11Device* device)
 	deferredScreenQuadPassDDSDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 	deferredScreenQuadPassDDSDesc.StencilEnable = false;
 	HR(device->CreateDepthStencilState(&deferredScreenQuadPassDDSDesc, &DeferredScreenQuadDSS));
+
+	D3D11_DEPTH_STENCIL_DESC disableZwriteDSSDesc;
+	disableZwriteDSSDesc.DepthEnable = true;
+	disableZwriteDSSDesc.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;;
+	disableZwriteDSSDesc.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
+	disableZwriteDSSDesc.StencilEnable = false;
+	HR(device->CreateDepthStencilState(&disableZwriteDSSDesc, &DisableZWriteDSS));
+
 }
 
 void RenderStates::DestroyAll()
@@ -142,4 +150,5 @@ void RenderStates::DestroyAll()
 	ReleaseCOM(NoRenderTargetWritesBS);
 	ReleaseCOM(DeferredScreenQuadDSS);
 	ReleaseCOM(DeferredScreenQuadBS);
+	ReleaseCOM(DisableZWriteDSS);
 }

@@ -592,6 +592,8 @@ void DemoApp::DrawDeferred()
 			md3dImmediateContext->DrawIndexed(6, 0, 0);
 		}
 	}
+	md3dImmediateContext->OMSetDepthStencilState(NULL, 0x1);
+	md3dImmediateContext->OMSetBlendState(NULL, blendFactors, 0xffffffff);
 
 	HR(mSwapChain->Present(0, 0));
 }
@@ -602,12 +604,8 @@ void DemoApp::DrawForward()
 	float blendFactors[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
 	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
-	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, clearColor);
-	md3dImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
-	md3dImmediateContext->OMSetDepthStencilState(RenderStates::DeferredScreenQuadDSS, 0x1);
-	//md3dImmediateContext->OMSetDepthStencilState(NULL, 0x1);
-
-	md3dImmediateContext->OMSetBlendState(RenderStates::DeferredScreenQuadBS, blendFactors, 0xffffffff);
+	md3dImmediateContext->OMSetDepthStencilState(NULL, 0x1);
+	md3dImmediateContext->OMSetBlendState(NULL, blendFactors, 0xffffffff);
 
 	UINT strides[2] = { sizeof(Vertex::VertexPNT), sizeof(Vertex::VertexIns_Mat) };
 	UINT offsets[2] = { 0, 0 };
@@ -633,6 +631,17 @@ void DemoApp::DrawForward()
 	md3dImmediateContext->PSSetShaderResources(0, 1, &m_pSphereSRV);
 	md3dImmediateContext->PSSetSamplers(0, 1, &m_pSampleLinear);
 
+	//Z pre-pass
+	ID3D11RenderTargetView * renderTargets[1] = { 0 };
+	md3dImmediateContext->OMSetRenderTargets(1, renderTargets, mDepthStencilView);
+	md3dImmediateContext->DrawIndexedInstanced(m_IndexCnt, m_InstanceCnt, 0, 0, 0);
+
+	//Rendering pass without z-write
+	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, clearColor);
+	md3dImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
+	md3dImmediateContext->OMSetDepthStencilState(RenderStates::DisableZWriteDSS, 0x1);
+	md3dImmediateContext->OMSetBlendState(RenderStates::DeferredScreenQuadBS, blendFactors, 0xffffffff);
+
 	if (m_bPointLightSwitch)
 	{
 		md3dImmediateContext->PSSetShader(m_pForwardPSPoint, NULL, 0);
@@ -653,5 +662,9 @@ void DemoApp::DrawForward()
 			md3dImmediateContext->DrawIndexedInstanced(m_IndexCnt, m_InstanceCnt, 0, 0, 0);
 		}
 	}
+
+	md3dImmediateContext->OMSetDepthStencilState(NULL, 0x1);
+	md3dImmediateContext->OMSetBlendState(NULL, blendFactors, 0xffffffff);
+
 	HR(mSwapChain->Present(0, 0));
 }
