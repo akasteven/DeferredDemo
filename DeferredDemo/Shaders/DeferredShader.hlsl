@@ -59,7 +59,7 @@ float4 PS_POINTLIGHT(float4 pos : SV_POSITION) : SV_TARGET
 	float3 diffuse = NDL * LightColor * albedo;
 
 	//Calculate Specular
-	float3 V = eyePos - position;
+	float3 V = normalize(eyePos - position);
 	float3 H = normalize(V + dir);
 	float3 specular = pow(saturate(dot(normal, H)), specularPower) * LightColor * NDL;
 
@@ -114,7 +114,7 @@ float4 PS_DIRECTIONALLIGHT(float4 pos : SV_POSITION) : SV_TARGET
 	float3 diffuse = NDL * LightColor * albedo;
 
 	//Calculate Specular
-	float3 V = eyePos - position;
+	float3 V = normalize(eyePos - position);
 	float3 H = normalize(V + dir);
 	float3 specular = pow(saturate(dot(normal, H)), specularPower) * LightColor * NDL;
 

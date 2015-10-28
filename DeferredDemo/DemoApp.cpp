@@ -48,12 +48,16 @@ DemoApp::DemoApp(HINSTANCE hInstance)
 :DemoBase(hInstance),
 m_bPointLightSwitch(true),
 m_bDirLightSwitch(true),
+m_bDeferred(false),
 m_pShadingVS(0),
 m_pShadingPSPoint(0),
 m_pShadingPSSpot(0),
 m_pShadingPSDirectional(0),
 m_pGBufferVS(0),
 m_pGBufferPS(0),
+m_pForwardVS(0),
+m_pForwardPSPoint(0),
+m_pForwardPSDirectional(0),
 m_pSphereSRV(0),
 m_pCBNeverChanges(0),
 m_pCBOnResize(0),
@@ -100,6 +104,9 @@ DemoApp::~DemoApp()
 	ReleaseCOM(m_pShadingPSPoint);
 	ReleaseCOM(m_pShadingPSSpot);
 	ReleaseCOM(m_pShadingPSDirectional);
+	ReleaseCOM(m_pForwardVS);
+	ReleaseCOM(m_pForwardPSPoint);
+	ReleaseCOM(m_pForwardPSDirectional);
 	ReleaseCOM(m_pGBufferVS);
 	ReleaseCOM(m_pGBufferPS);
 	ReleaseCOM(m_pSphereSRV);
@@ -214,6 +221,18 @@ void DemoApp::CreateShaders()
 
 	HR(LoadShaderBinaryFromFile("Shaders//DeferredPSDirectionalLight.fxo", &pBlob));
 	HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pShadingPSDirectional));
+
+	HR(LoadShaderBinaryFromFile("Shaders//ForwardVS.fxo", &pBlob));
+	HR(md3dDevice->CreateVertexShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pForwardVS));
+	InputLayouts::InitLayout(md3dDevice, pBlob, Vertex::POSNORTEX_INS);
+
+	HR(LoadShaderBinaryFromFile("Shaders//ForwardPSPointLight.fxo", &pBlob));
+	HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pForwardPSPoint));
+
+	HR(LoadShaderBinaryFromFile("Shaders//ForwardPSDirectionalLight.fxo", &pBlob));
+	HR(md3dDevice->CreatePixelShader(pBlob->GetBufferPointer(), pBlob->GetBufferSize(), NULL, &m_pForwardPSDirectional));
+
+
 
 	ReleaseCOM(pBlob);
 }
@@ -462,6 +481,10 @@ void DemoApp::UpdateScene(float dt)
 		m_bDirLightSwitch = false;
 	if (GetAsyncKeyState('B') & 0x8000)
 		m_bDirLightSwitch = true;
+	if (GetAsyncKeyState('O') & 0x8000)
+		m_bDeferred = true;
+	if (GetAsyncKeyState('P') & 0x8000)
+		m_bDeferred = false;
 
 
 	//Update Per Frame Constant Buffer
@@ -475,7 +498,17 @@ void DemoApp::UpdateScene(float dt)
 	m_pCamera->Update();
 }
 
+
 void DemoApp::DrawScene()
+{
+	if (m_bDeferred)
+		DrawDeferred();
+	else
+		DrawForward();
+
+}
+
+void DemoApp::DrawDeferred()
 {
 	float clearColor[4] = {0.0f, 0.0f, 0.0f, 0.0f };
 	float blendFactors[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
@@ -563,4 +596,62 @@ void DemoApp::DrawScene()
 	HR(mSwapChain->Present(0, 0));
 }
 
+void DemoApp::DrawForward()
+{
+	float clearColor[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+	float blendFactors[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
 
+	md3dImmediateContext->ClearDepthStencilView(mDepthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
+	md3dImmediateContext->ClearRenderTargetView(mRenderTargetView, clearColor);
+	md3dImmediateContext->OMSetRenderTargets(1, &mRenderTargetView, mDepthStencilView);
+	md3dImmediateContext->OMSetDepthStencilState(RenderStates::DeferredScreenQuadDSS, 0x1);
+	//md3dImmediateContext->OMSetDepthStencilState(NULL, 0x1);
+
+	md3dImmediateContext->OMSetBlendState(RenderStates::DeferredScreenQuadBS, blendFactors, 0xffffffff);
+
+	UINT strides[2] = { sizeof(Vertex::VertexPNT), sizeof(Vertex::VertexIns_Mat) };
+	UINT offsets[2] = { 0, 0 };
+	ID3D11Buffer * buffers[2] = { m_pSphereVB, m_pInstancedBuffer };
+	md3dImmediateContext->IASetVertexBuffers(0, 2, buffers, strides, offsets);
+	md3dImmediateContext->IASetIndexBuffer(m_pSphereIB, DXGI_FORMAT_R32_UINT, 0);
+	md3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	md3dImmediateContext->IASetInputLayout(InputLayouts::VertexPNT_INS);
+	md3dImmediateContext->RSSetState(RenderStates::CullCounterClockwiseRS);
+	md3dImmediateContext->VSSetShader(m_pForwardVS, NULL, 0);
+
+	CBPerObject cbPerObj;
+	cbPerObj.isInstancing = 1;
+	cbPerObj.specularPower = 30;
+	XMMATRIX world = XMMatrixIdentity();
+	cbPerObj.matWorld = XMMatrixTranspose(world);
+	cbPerObj.matWorldInvTranspose = XMMatrixTranspose(MathHelper::InverseTranspose(world));
+	cbPerObj.matWVP = XMMatrixTranspose(world * m_pCamera->GetViewProjMatrix());
+	md3dImmediateContext->UpdateSubresource(m_pCBPerObject, 0, NULL, &cbPerObj, 0, 0);
+	md3dImmediateContext->VSSetConstantBuffers(3, 1, &m_pCBPerObject);
+	md3dImmediateContext->PSSetConstantBuffers(3, 1, &m_pCBPerObject);
+	md3dImmediateContext->PSSetConstantBuffers(4, 1, &m_pCBPerLight);
+	md3dImmediateContext->PSSetShaderResources(0, 1, &m_pSphereSRV);
+	md3dImmediateContext->PSSetSamplers(0, 1, &m_pSampleLinear);
+
+	if (m_bPointLightSwitch)
+	{
+		md3dImmediateContext->PSSetShader(m_pForwardPSPoint, NULL, 0);
+		for (UINT i = 0; i < m_vPointLights.size(); i++)
+		{
+			LightParams cbPerlight = m_vPointLights[i];
+			md3dImmediateContext->UpdateSubresource(m_pCBPerLight, 0, NULL, &cbPerlight, 0, 0);
+			md3dImmediateContext->DrawIndexedInstanced(m_IndexCnt, m_InstanceCnt, 0, 0, 0);
+		}
+	}
+
+	if (m_bDirLightSwitch)
+	{
+		for (UINT j = 0; j < m_vDirLights.size(); j++)
+		{
+			LightParams cbPerlight = m_vDirLights[j];
+			md3dImmediateContext->UpdateSubresource(m_pCBPerLight, 0, NULL, &cbPerlight, 0, 0);
+			md3dImmediateContext->DrawIndexedInstanced(m_IndexCnt, m_InstanceCnt, 0, 0, 0);
+		}
+	}
+	HR(mSwapChain->Present(0, 0));
+}

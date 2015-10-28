@@ -14,6 +14,9 @@ public:
 	void DrawScene();
 	void CalculateFrameStats();
 
+	void DrawForward();
+	void DrawDeferred();
+
 	struct LightParams
 	{
 		XMFLOAT3 LightDir;
@@ -44,8 +47,10 @@ private:
 	std::vector<LightParams> m_vPointLights;
 	std::vector<LightParams> m_vDirLights;
 
+	//Swithes
 	bool m_bPointLightSwitch;
 	bool m_bDirLightSwitch;
+	bool m_bDeferred;
 
 	//GBuffer Resource Views and Render Target Views
 	ID3D11ShaderResourceView * m_pPositionSRV;
@@ -63,6 +68,10 @@ private:
 	ID3D11PixelShader * m_pShadingPSPoint;
 	ID3D11PixelShader * m_pShadingPSSpot;
 	ID3D11PixelShader * m_pShadingPSDirectional;
+
+	ID3D11VertexShader * m_pForwardVS;
+	ID3D11PixelShader * m_pForwardPSPoint;
+	ID3D11PixelShader * m_pForwardPSDirectional;
 
 	//Shader Constant Buffers
 	ID3D11Buffer * m_pCBNeverChanges;
@@ -93,8 +102,7 @@ private:
 	XMMATRIX m_matView;
 	XMMATRIX m_matProj;
 
-
-	//Scene Parameter
+	//Scene Object Parameter
 	UINT m_InstanceCnt;
 	UINT m_IndexCnt;
 	UINT m_LightCnt;

@@ -72,7 +72,11 @@ fxc /Zi /Od /T ps_5_0 /E PS_SPOTLIGHT /Fc Shaders\DeferredPSSpotLight.asm /Fo Sh
 
 fxc /Zi /Od /T ps_5_0 /E PS_DIRECTIONALLIGHT /Fc Shaders\DeferredPSDirectionalLight.asm /Fo Shaders\DeferredPSDirectionalLight.fxo Shaders\DeferredShader.hlsl
 
-</Command>
+fxc /Zi /Od /T vs_5_0 /E VS /Fc Shaders\ForwardVS.asm /Fo Shaders\ForwardVS.fxo Shaders\ForwardShader.hlsl 
+
+fxc /Zi /Od /T ps_5_0 /E  PS_DIRECTIONALLIGHT /Fc Shaders\ForwardPSDirectionalLight.asm /Fo Shaders\ForwardPSDirectionalLight.fxo Shaders\ForwardShader.hlsl 
+
+fxc /Zi /Od /T ps_5_0 /E PS_POINTLIGHT /Fc Shaders\ForwardPSPointLight.asm /Fo Shaders\ForwardPSPointLight.fxo Shaders\ForwardShader.hlsl </Command>
     </PreBuildEvent>
     <FxCompile>
       <ShaderModel>5.0</ShaderModel>
@@ -135,16 +139,10 @@ fxc /Zi /Od /T ps_5_0 /E PS_DIRECTIONALLIGHT /Fc Shaders\DeferredPSDirectionalLi
     <FxCompile Include="Shaders\DeferredShader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </FxCompile>
-    <FxCompile Include="Shaders\DemoShader.hlsl">
+    <FxCompile Include="Shaders\ForwardShader.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </FxCompile>
     <FxCompile Include="Shaders\GBufferShader.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-    </FxCompile>
-    <FxCompile Include="Shaders\LightDef.hlsl">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-    </FxCompile>
-    <FxCompile Include="Shaders\SimpleLighting.hlsl">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
     </FxCompile>
   </ItemGroup>
