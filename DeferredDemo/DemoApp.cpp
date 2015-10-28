@@ -140,9 +140,6 @@ void DemoApp::CalculateFrameStats()
 	}
 }
 
-
-
-
 void DemoApp::OnResize()
 {
 	DemoBase::OnResize();
